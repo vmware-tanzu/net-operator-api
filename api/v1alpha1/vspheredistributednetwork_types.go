@@ -18,6 +18,15 @@ const (
 	VSphereDistributedNetworkIPPoolInvalid VSphereDistributedNetworkConditionType = "IPPoolInvalid"
 )
 
+type IPAssignmentModeType string
+
+const (
+	// IPAssignmentModeDHCP indicates IP address is assigned dynamically using DHCP.
+	IPAssignmentModeDHCP IPAssignmentModeType = "dhcp"
+	// IPAssignmentModeStaticPool indicates IP address is assigned from a static pool of IP addresses.
+	IPAssignmentModeStaticPool IPAssignmentModeType = "staticpool"
+)
+
 // VSphereDistributedNetworkCondition describes the state of a VSphereDistributedNetwork at a certain point.
 type VSphereDistributedNetworkCondition struct {
 	// Type is the type of VSphereDistributedNetwork condition.
@@ -42,12 +51,26 @@ type IPPoolReference struct {
 type VSphereDistributedNetworkSpec struct {
 	// PortGroupID is an existing vSphere Distributed PortGroup identifier.
 	PortGroupID string `json:"portGroupID"`
-	// IPPools references list IPPool objects.
-	IPPools []IPPoolReference `json:"ipPools"`
-	// Gateway setting to use for network interfaces.
-	Gateway string `json:"gateway"`
-	// SubnetMask setting to use for network interfaces.
-	SubnetMask string `json:"subnetMask"`
+
+	// IPAssignmentMode to use for network interfaces. If unset, defaults to IPAssignmentModeStaticPool.
+	// In case of IPAssignmentModeDHCP, IPPools, Gateway and SubnetMask fields are ignored.
+	// +optional
+	IPAssignmentMode IPAssignmentModeType `json:"ipAssignmentMode,omitempty"`
+
+	// IPPools references list IPPool objects. This field is required for IPAssignmentModeStaticPool
+	// IPAssignmentMode.
+	// +optional
+	IPPools []IPPoolReference `json:"ipPools,omitempty"`
+
+	// Gateway setting to use for network interfaces. This field is required for IPAssignmentModeStaticPool
+	// IPAssignmentMode.
+	// +optional
+	Gateway string `json:"gateway,omitempty"`
+
+	// SubnetMask setting to use for network interfaces. This field is required for IPAssignmentModeStaticPool
+	// IPAssignmentMode.
+	// +optional
+	SubnetMask string `json:"subnetMask,omitempty"`
 }
 
 // VSphereDistributedNetworkStatus defines the observed state of VSphereDistributedNetwork.

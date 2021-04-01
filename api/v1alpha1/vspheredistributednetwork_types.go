@@ -57,20 +57,17 @@ type VSphereDistributedNetworkSpec struct {
 	// +optional
 	IPAssignmentMode IPAssignmentModeType `json:"ipAssignmentMode,omitempty"`
 
-	// IPPools references list IPPool objects. This field is required for IPAssignmentModeStaticPool
-	// IPAssignmentMode.
-	// +optional
-	IPPools []IPPoolReference `json:"ipPools,omitempty"`
+	// IPPools references list of IPPool objects. This field should be set to empty list for
+	// IPAssignmentModeDHCP IPAssignmentMode.
+	IPPools []IPPoolReference `json:"ipPools"`
 
-	// Gateway setting to use for network interfaces. This field is required for IPAssignmentModeStaticPool
-	// IPAssignmentMode.
-	// +optional
-	Gateway string `json:"gateway,omitempty"`
+	// Gateway setting to use for network interfaces. This field should be set to empty string
+	// for IPAssignmentModeDHCP IPAssignmentMode.
+	Gateway string `json:"gateway"`
 
-	// SubnetMask setting to use for network interfaces. This field is required for IPAssignmentModeStaticPool
-	// IPAssignmentMode.
-	// +optional
-	SubnetMask string `json:"subnetMask,omitempty"`
+	// SubnetMask setting to use for network interfaces. This field should be set to empty string
+	// for IPAssignmentModeDHCP IPAssignmentMode.
+	SubnetMask string `json:"subnetMask"`
 }
 
 // VSphereDistributedNetworkStatus defines the observed state of VSphereDistributedNetwork.

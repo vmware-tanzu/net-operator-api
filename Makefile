@@ -79,8 +79,9 @@ endif
 generate-manifests: $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC etc.
 	$(CONTROLLER_GEN) \
 		paths=./api/... \
-		crd:trivialVersions=true \
-		output:crd:dir=$(CRD_ROOT)
+		crd:crdVersions=v1 \
+		output:crd:dir=$(CRD_ROOT) \
+		output:none
 
 .PHONY: generate-client
 generate-client: tools ## Generate api client

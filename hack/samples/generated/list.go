@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	fmt.Printf("Listing NetworkInterfaces:\n")
-	netIfList, err := netOpClient.NetworkInterfaces(namespace).List(v1.ListOptions{})
+	netIfList, err := netOpClient.NetworkInterfaces(namespace).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -73,11 +74,14 @@ func startTestEnv() (*rest.Config, error) {
 }
 
 func populateTestEnv(client *netopv1alpha1.NetoperatorV1alpha1Client, name string) error {
-	_, err := client.NetworkInterfaces(namespace).Create(&v1alpha1.NetworkInterface{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+	_, err := client.NetworkInterfaces(namespace).Create(context.TODO(),
+		&v1alpha1.NetworkInterface{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
 		},
-	})
+		metav1.CreateOptions{},
+	)
 	return err
 }

@@ -54,8 +54,6 @@ type NetworkStatus struct {
 type NetworkReference struct {
 	// Name of the Network resource being referenced.
 	Name string `json:"name"`
-	// Namespace is the name of the namespace where the Network is located.
-	Namespace string `json:"namespace"`
 	// APIVersion of the referent.
 	APIVersion string `json:"apiVersion,omitempty"`
 }

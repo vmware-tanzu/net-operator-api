@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,14 +17,13 @@ const (
 	FoundationLoadBalancerSizeSmall  FoundationLoadBalancerSize = "small"
 	FoundationLoadBalancerSizeMedium FoundationLoadBalancerSize = "medium"
 	FoundationLoadBalancerSizeLarge  FoundationLoadBalancerSize = "large"
-	FoundationLoadBalancerSizeXL     FoundationLoadBalancerSize = "xl"
+	FoundationLoadBalancerSizeXL     FoundationLoadBalancerSize = "xlarge"
 
 	FoundationAvailabilityModeActivePassive FoundationLoadBalancerAvailabilityMode = "active-passive"
 	FoundationAvailabilityModeSingleNode    FoundationLoadBalancerAvailabilityMode = "single-node"
 )
 
 type FoundationLoadBalancerConditionType string
-type FoundationLoadBalancerConditionReason string
 type FoundationLoadBalancerTopologyType string
 type FoundationLoadBalancerSize string
 type FoundationLoadBalancerAvailabilityMode string
@@ -37,7 +35,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 
 	// Size describes the node form factor.
 	//
-	// +kubebuilder:validation:Enum=small;medium;large;xl
+	// +kubebuilder:validation:Enum=small;medium;large;xlarge
 	// +kubebuilder:default=small
 	Size FoundationLoadBalancerSize `json:"size"`
 
@@ -53,7 +51,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// Zones contains the names of zones eligible for placing nodes. Zones must be one of the
 	// AvailabilityZones defined and eligible for placement on the cluster.
 	//
-	// If no zones are provided, then you must provide a PlacementSpec.
+	// If no zones are provided, you must provide a PlacementSpec.
 	// +optional
 	Zones []string `json:"zones,omitempty"`
 
@@ -94,8 +92,8 @@ type ActivePassiveAvailabilityMode struct {
 	// Replicas describes the total number of deployed nodes. Defaults to 2.
 	//
 	// +kubebuilder:validation:Maximum=2
-	// +optional
-	Replicas *uint32 `json:"replicas,omitempty"`
+	// +kubebuilder:default=2
+	Replicas uint32 `json:"replicas"`
 }
 
 // SingleModeAvailabilityMode defines single node configuration. Single node configuration involves
@@ -105,8 +103,8 @@ type SingleModeAvailabilityMode struct {
 	// Replicas describes the total number of deployed nodes. Defaults to 1.
 	//
 	// +kubebuilder:validation:Maximum=1
-	// +optional
-	Replicas *uint32 `json:"replicas,omitempty"`
+	// +kubebuilder:default=1
+	Replicas uint32 `json:"replicas"`
 }
 
 // CustomPlacementSpec defines specific configurations for placing load balancer nodes.
@@ -139,28 +137,12 @@ type FoundationLoadBalancerNodeStatus struct {
 	VIPNetworkInterface NetworkInterfaceReference `json:"vipNetworkInterface"`
 }
 
-// FoundationLoadBalancerCondition describes the state of a FoundationLoadBalancerConfig at a certain point.
-type FoundationLoadBalancerCondition struct {
-	// Type is the type of network interface condition.
-	Type NetworkInterfaceConditionType `json:"type"`
-	// Status is the status of the condition.
-	// Can be True, False, Unknown.
-	Status corev1.ConditionStatus `json:"status"`
-	// LastTransitionTime is the timestamp corresponding to the last status
-	// change of this condition.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-	// Reason provides a machine understandable string that gives the reason for condition's last transition.
-	Reason FoundationLoadBalancerConditionReason `json:"reason,omitempty"`
-	// Message is a human-readable string indicating details about last transition.
-	Message string `json:"message,omitempty"`
-}
-
 // FoundationLoadBalancerConfigStatus describes the observed state of the Foundation Load Balancer.
 type FoundationLoadBalancerConfigStatus struct {
 	// Nodes list specific information about each deployed node.
 	Nodes []FoundationLoadBalancerNodeStatus `json:"nodes,omitempty"`
 	// Conditions describes states of the load balancer at specific points in time.
-	Conditions []FoundationLoadBalancerCondition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // FoundationLoadBalancerConfigSpec defines the configuration for a vSphere Foundation Load Balancer.

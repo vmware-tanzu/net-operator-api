@@ -55,6 +55,7 @@ type NetworkReference struct {
 	// Name of the Network resource being referenced.
 	Name string `json:"name"`
 	// APIVersion of the referent.
+	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 

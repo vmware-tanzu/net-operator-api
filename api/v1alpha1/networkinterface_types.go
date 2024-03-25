@@ -143,6 +143,7 @@ type NetworkInterfaceReference struct {
 	// Namespace is the name of the namespace where the NetworkInterface is located.
 	Namespace string `json:"namespace"`
 	// APIVersion of the referent.
+	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 

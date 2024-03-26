@@ -52,7 +52,11 @@ type NetworkStatus struct {
 
 // NetworkReference is an object that points to a Network.
 type NetworkReference struct {
-	// Name of the Network resource being referenced.
+	// APIGroup is the group for the resource being referenced.
+	APIGroup string `json:"apiGroup"`
+	// Kind is the type of resource being referenced.
+	Kind string `json:"kind"`
+	// Name is the name of resource being referenced.
 	Name string `json:"name"`
 	// APIVersion of the referent.
 	// +optional

@@ -26,3 +26,5 @@ vendor
 
 # generated config files
 config/
+# generated clientset
+pkg/client

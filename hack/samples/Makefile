@@ -8,9 +8,10 @@ SHELL := /usr/bin/env bash
 
 # Active module mode, as we use go modules to manage dependencies
 export GO111MODULE := on
+export GOBIN := $(shell git rev-parse --show-toplevel)/hack/tools/bin
 
 # Directories.
-BIN_DIR := bin
+BIN_DIR := $(GOBIN)
 
 HOST_OS=$(shell go env GOOS)
 HOST_ARCH=$(shell go env GOARCH)
@@ -37,7 +38,7 @@ help: ## Display this help
 ## --------------------------------------
 
 .PHONY: $(LIST_GEN)
-list-gen: prereqs $(LIST_GEN) ## Build list samnple with generated client
+list-gen: prereqs $(LIST_GEN) ## Build list sample with generated client
 $(LIST_GEN): go.mod
 	cd ../../; $(MAKE) generate-client
 	go build -o $@ github.com/vmware-tanzu/net-operator-api/hack/samples/generated
@@ -57,4 +58,4 @@ clean: ## Run all the clean targets
 
 .PHONY: clean-bin
 clean-bin: ## Remove all generated binaries
-	rm -rf bin
+	rm -rf $(BIN_DIR)

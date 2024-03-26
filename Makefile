@@ -14,6 +14,7 @@ BIN_DIR       := bin
 TOOLS_DIR     := hack/tools
 TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
 export PATH := $(abspath $(BIN_DIR)):$(abspath $(TOOLS_BIN_DIR)):$(PATH)
+export GOBIN := $(shell git rev-parse --show-toplevel)/hack/tools/bin
 
 # Tooling binaries
 CONTROLLER_GEN     := $(TOOLS_BIN_DIR)/controller-gen
@@ -70,7 +71,7 @@ generate: ## Run all code generation targets
 generate-go: $(CONTROLLER_GEN) ## Runs Go related generate targets
 	$(CONTROLLER_GEN) \
 		paths=./api/... \
-		object:headerFile="$(abspath hack/boilerplate/boilerplate.go.txt)"
+		+object:headerFile="$(abspath hack/boilerplate/boilerplate.go.txt)"
 ifneq (0,$(GENERATE_CODE))
 	go generate ./...
 endif

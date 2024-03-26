@@ -45,6 +45,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// Version number desired by the operator.
 	//
 	// Defaults to the latest available.
+	//
 	// +optional
 	Version string `json:"version,omitempty"`
 
@@ -52,6 +53,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// AvailabilityZones defined and eligible for placement on the cluster.
 	//
 	// If no zones are provided, you must provide a PlacementSpec.
+	//
 	// +optional
 	Zones []string `json:"zones,omitempty"`
 
@@ -80,6 +82,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	//
 	// If Zones are specified, this field is ignored.
 	// If Zones are not specified, this field must be set.
+	//
 	// +optional
 	PlacementSpec []CustomPlacementSpec `json:"placementSpec,omitempty"`
 }
@@ -130,8 +133,12 @@ type FoundationLoadBalancerNodeStatus struct {
 	// NodeID is a node's unique identifier.
 	NodeID string `json:"nodeID"`
 	// ManagementNetworkInterface defines the management NetworkInterface if it exists.
+	//
+	// +optional
 	ManagementNetworkInterface NetworkInterfaceReference `json:"managementNetworkInterface,omitempty"`
 	// WorkloadNetworkInterface defines the workload NetworkInterfaces if they exist.
+	//
+	// +optional
 	WorkloadNetworkInterfaces []NetworkInterfaceReference `json:"workloadNetworkInterfaces,omitempty"`
 	// VIPNetworkInterface is the interface bound to the Virtual IP Network.
 	VIPNetworkInterface NetworkInterfaceReference `json:"vipNetworkInterface"`
@@ -140,8 +147,12 @@ type FoundationLoadBalancerNodeStatus struct {
 // FoundationLoadBalancerConfigStatus describes the observed state of the Foundation Load Balancer.
 type FoundationLoadBalancerConfigStatus struct {
 	// Nodes list specific information about each deployed node.
+	//
+	// +optional
 	Nodes []FoundationLoadBalancerNodeStatus `json:"nodes,omitempty"`
 	// Conditions describes states of the load balancer at specific points in time.
+	//
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -154,6 +165,7 @@ type FoundationLoadBalancerConfigSpec struct {
 	// WorkloadNetwork points to the Network used to program node workload network interfaces.
 	//
 	// If unset, workload data traffic will be routed out of the same NIF bound to VirtualIPNetwork.
+	//
 	// +kubebuilder:validation:MaxItems:=1
 	// +optional
 	WorkloadNetworks []NetworkReference `json:"workloadNetworks,omitempty"`

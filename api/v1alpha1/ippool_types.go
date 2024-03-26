@@ -28,7 +28,7 @@ const (
 	// IPPoolUsageAnnotationStrictKeyName indicates that an interface should not attempt
 	// to retrieve IPPools meant for general purpose consumption. For example, if "vip" is set,
 	// only IPPools matching the "vip" label will be used and "general" will not be used as a pool.
-	IPPoolUsageAnnotationStrictKeyName = "netoperator.vmware.com/ipam-usage/strict"
+	IPPoolUsageAnnotationStrictKeyName = "netoperator.vmware.com/ipam-strict-usage"
 
 	// IPPoolUsageLabelGeneralValue indicates an IP pool can be used for any purpose.
 	// If a usage label is omitted from an IPPool, this value is implied.

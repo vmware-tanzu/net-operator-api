@@ -138,13 +138,12 @@ type NetworkInterfaceSpec struct {
 
 // NetworkInterfaceReference is an object that points to a NetworkInterface.
 type NetworkInterfaceReference struct {
-	// APIGroup is the group for the resource being referenced.
-	APIGroup string `json:"apiGroup"`
 	// Kind is the type of resource being referenced.
 	Kind string `json:"kind"`
 	// Name is the name of resource being referenced.
 	Name string `json:"name"`
 	// APIVersion of the referent.
+	//
 	// +optional
 	APIVersion string `json:"apiVersion,omitempty"`
 }

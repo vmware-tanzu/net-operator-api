@@ -134,6 +134,11 @@ type NetworkInterfaceSpec struct {
 	// of attaching a network interface to a network and should be left unset. This is used primarily when
 	// attachment of network interface to the network is done without vCenter Server's knowledge.
 	PortAllocation *NetworkInterfacePortAllocation `json:"portAllocation,omitempty"`
+	// ExternalID describes a value that will be surfaced as status.externalID.
+	// If this field is omitted, then it is up to the underlying network
+	// provider to surface any information in status.externalID.
+	// +optional
+	ExternalID string `json:"externalID,omitempty"`
 }
 
 // NetworkInterfaceReference is an object that points to a NetworkInterface.

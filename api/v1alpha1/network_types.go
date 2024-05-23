@@ -30,6 +30,9 @@ const (
 
 	// NetworkTypeVDS is the network type describing VSphere Distributed Switch.
 	NetworkTypeVDS = NetworkType("vsphere-distributed")
+
+	// NetworkTypeNSXTVPC is the network type describing NSX-T VPC.
+	NetworkTypeNSXTVPC = NetworkType("nsx-t_vpc")
 )
 
 // NetworkSpec defines the state of Network.

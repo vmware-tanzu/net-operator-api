@@ -32,7 +32,6 @@ type FoundationLoadBalancerAvailabilityMode string
 
 // FoundationLoadBalancerDeploymentSpec describes how to deploy the load balancer.
 type FoundationLoadBalancerDeploymentSpec struct {
-
 	// Size describes the node form factor.
 	//
 	// +kubebuilder:validation:Enum=small;medium;large;xlarge
@@ -112,7 +111,6 @@ type SingleModeAvailabilityMode struct {
 
 // CustomPlacementSpec defines specific configurations for placing load balancer nodes.
 type CustomPlacementSpec struct {
-
 	// Cluster is the Managed Object ID of a vSphere ClusterComputeResource for placement outside a Supervisor.
 	Cluster string `json:"cluster"`
 
@@ -159,9 +157,16 @@ type FoundationLoadBalancerConfigStatus struct {
 // FoundationLoadBalancerConfigSpec defines the configuration for a vSphere Foundation Load Balancer.
 // This specification is used to configure the resources for the load balancer on vCenter Server.
 type FoundationLoadBalancerConfigSpec struct {
+	// DeploymentSpec describes sizing and placement constraints of the load balancer.
 	DeploymentSpec FoundationLoadBalancerDeploymentSpec `json:"deploymentSpec"`
+
 	// ManagementNetwork points to the Network used to program node management network interfaces.
-	ManagementNetwork NetworkReference `json:"managementNetwork"`
+	//
+	// If unset, the VirtualIPNetwork will be used for management traffic.
+	//
+	// +optional
+	ManagementNetwork *NetworkReference `json:"managementNetwork,omitempty"`
+
 	// WorkloadNetwork points to the Network used to program node workload network interfaces.
 	//
 	// If unset, workload data traffic will be routed out of the same NIF bound to VirtualIPNetwork.
@@ -169,6 +174,7 @@ type FoundationLoadBalancerConfigSpec struct {
 	// +kubebuilder:validation:MaxItems:=1
 	// +optional
 	WorkloadNetworks []NetworkReference `json:"workloadNetworks,omitempty"`
+
 	// VirtualIPNetwork points to the Network used to program node VIP network interfaces.
 	VirtualIPNetwork NetworkReference `json:"virtualIPNetwork"`
 
@@ -181,17 +187,54 @@ type FoundationLoadBalancerConfigSpec struct {
 
 // FoundationLoadBalancerNetworkConfigSpec contains values for configuring networks on the load balancer.
 type FoundationLoadBalancerNetworkConfigSpec struct {
-	// StrictVIPPools indicates NetworkInterfaces provisioned by this load balancer should
-	// only use vip-labeled IPPools for provisioning load balancer IP addresses.
+	// VirtualServerIPPools are the list of IPPools that are
+	// used for load balancer IP addresses.
+	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools"`
+
+	// VirtualServerSubnets are the list of subnets specified in CIDR notation
+	// that are directly connected to the VirtualIPNetwork.
 	//
-	// If this option is toggled while IP addresses are already provisioned, then
-	// the IP addresses of the Services may be changed if VIPs are re-provisioned.
-	//
-	// By default, load balancer IP addresses may be consumed from general IP pools with
-	// preference given to vip-labeled pools if they are defined.
+	// The VirtualServerIPPools must fall within the subnet of the VirtualIPNetwork
+	// or one of these subnets.
 	//
 	// +optional
-	StrictVIPPools bool `json:"strictVIPPools,omitempty"`
+	VirtualServerSubnets []string `json:"virtualServerSubnets,omitempty"`
+
+	// DNSServers is the list of servers used for DNS traffic.
+	// These servers must be reachable from the network configured
+	// for management traffic.
+	//
+	// +optional
+	DNSServers []string `json:"dnsServers,omitempty"`
+
+	// DNSSearchDomains are the domains resolvable on the specified DNSServers.
+	//
+	// +optional
+	DNSSearchDomains []string `json:"dnsSearchDomains,omitempty"`
+
+	// NTPServers are the servers used to sync time across nodes.
+	// These servers must be reachable from the network configured
+	// for management traffic.
+	//
+	// +optional
+	NTPServers []string `json:"ntpServers,omitempty"`
+
+	// SyslogEndpoint configures the syslog server. It accepts a protocol, host and port.
+	// If using TLS, you must configure a TLS CA that is capable of verifying the endpoint certificate.
+	// E.g. [protocol://]host[:port]
+	// This server must be reachable from the network configured for management traffic.
+	//
+	// If empty, data will be logged locally to load balancer nodes.
+	// Defaults to port 514 if using UDP and 6514 if using TLS.
+	//
+	// +optional
+	SyslogEndpoint string `json:"syslogEndpoint,omitempty"`
+
+	// SyslogCertificateSecretName is the certificate required to verify
+	// the TLS syslog endpoint in PEM format.
+	//
+	// +optional
+	SyslogCertificate string `json:"syslogCertificate,omitempty"`
 }
 
 // +genclient

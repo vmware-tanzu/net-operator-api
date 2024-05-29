@@ -251,6 +251,14 @@ type FoundationLoadBalancerConfig struct {
 	Status FoundationLoadBalancerConfigStatus `json:"status,omitempty"`
 }
 
+func (flb *FoundationLoadBalancerConfig) GetConditions() []metav1.Condition {
+	return flb.Status.Conditions
+}
+
+func (flb *FoundationLoadBalancerConfig) SetConditions(conditions []metav1.Condition) {
+	flb.Status.Conditions = conditions
+}
+
 // +kubebuilder:object:root=true
 
 // FoundationLoadBalancerConfigList contains a list of FoundationLoadBalancerConfig.

@@ -8,11 +8,14 @@ import (
 )
 
 const (
-	// FoundationLoadBalancerConditionReady is added when all load balancer settings have been updated
-	// and the load balancer is ready to be used.
-	FoundationLoadBalancerConditionReady FoundationLoadBalancerConditionType = "Ready"
-	// FoundationLoadBalancerConditionFailure is added when load balancer provider returns an error.
-	FoundationLoadBalancerConditionFailure FoundationLoadBalancerConditionType = "Failure"
+	// FoundationLoadBalancerConditionHealthy reflects the health state of the load balancer.
+	FoundationLoadBalancerConditionHealthy FoundationLoadBalancerConditionType = "Healthy"
+	// FoundationLoadBalancerConditionApplyStateReady reflects the apply state of the load balancer.
+	FoundationLoadBalancerConditionApplyStateReady FoundationLoadBalancerConditionType = "ApplyStateReady"
+	// FoundationLoadBalancerConditionDeploymentStateReady reflects the deployment state of the load balancer.
+	FoundationLoadBalancerConditionDeploymentStateReady FoundationLoadBalancerConditionType = "DeploymentStateReady"
+	// FoundationLoadBalancerConditionOperationStateReady reflects the operation state of the load balancer.
+	FoundationLoadBalancerConditionOperationStateReady FoundationLoadBalancerConditionType = "OperationStateReady"
 
 	FoundationLoadBalancerSizeSmall  FoundationLoadBalancerSize = "small"
 	FoundationLoadBalancerSizeMedium FoundationLoadBalancerSize = "medium"

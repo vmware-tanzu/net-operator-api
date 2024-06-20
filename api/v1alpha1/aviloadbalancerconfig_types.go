@@ -44,7 +44,7 @@ type AviLoadBalancerConfigSpec struct {
 	//   * ADDRESS is the Avi Controller IP address or the Avi Cluster IP when
 	//     two or more Avi Controllers are deployed in cluster mode.
 	//   * PORT defaults to 80 when SCHEME is http and 443 when SCHEME is https.
-	Server string `json:"server"`
+	Server string `json:"server,omitempty"`
 
 	// CloudName is used by the Avi Kubernetes Operator (AKO) when querying
 	// properties via the Avi REST API, ex. /api/cloud/?name=CLOUD_NAME.
@@ -88,7 +88,7 @@ type AviLoadBalancerConfigSpec struct {
 	//   certificateAuthorityData: []byte
 	//   username: []byte
 	//   password: []byte
-	CredentialSecretRef ClientSecretReference `json:"credentialSecretRef"`
+	CredentialSecretRef ClientSecretReference `json:"credentialSecretRef,omitempty"`
 }
 
 // AviLoadBalancerConfigStatus is unused because AviLoadBalancerConfigSpec is

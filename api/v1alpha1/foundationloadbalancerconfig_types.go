@@ -8,14 +8,12 @@ import (
 )
 
 const (
-	// FoundationLoadBalancerConditionHealthy reflects the health state of the load balancer.
+	// FoundationLoadBalancerConditionHealthy reflects the health status of the load balancer data-plane's runtime.
 	FoundationLoadBalancerConditionHealthy FoundationLoadBalancerConditionType = "Healthy"
-	// FoundationLoadBalancerConditionApplyStateReady reflects the apply state of the load balancer.
-	FoundationLoadBalancerConditionApplyStateReady FoundationLoadBalancerConditionType = "ApplyStateReady"
-	// FoundationLoadBalancerConditionDeploymentStateReady reflects the deployment state of the load balancer.
-	FoundationLoadBalancerConditionDeploymentStateReady FoundationLoadBalancerConditionType = "DeploymentStateReady"
-	// FoundationLoadBalancerConditionOperationStateReady reflects the operation state of the load balancer.
-	FoundationLoadBalancerConditionOperationStateReady FoundationLoadBalancerConditionType = "OperationStateReady"
+	// FoundationLoadBalancerConditionDeploymentStatusReady reflects the deployment status of the load balancer node(s).
+	FoundationLoadBalancerConditionDeploymentStatusReady FoundationLoadBalancerConditionType = "DeploymentStateReady"
+	// FoundationLoadBalancerConditionOperationStatusReady reflects the operation status of the load balancer instance.
+	FoundationLoadBalancerConditionOperationStatusReady FoundationLoadBalancerConditionType = "OperationStateReady"
 
 	FoundationLoadBalancerSizeSmall  FoundationLoadBalancerSize = "small"
 	FoundationLoadBalancerSizeMedium FoundationLoadBalancerSize = "medium"

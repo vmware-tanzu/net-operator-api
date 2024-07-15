@@ -11,9 +11,9 @@ const (
 	// FoundationLoadBalancerConditionHealthy reflects the health status of the load balancer data-plane's runtime.
 	FoundationLoadBalancerConditionHealthy FoundationLoadBalancerConditionType = "Healthy"
 	// FoundationLoadBalancerConditionDeploymentStatusReady reflects the deployment status of the load balancer node(s).
-	FoundationLoadBalancerConditionDeploymentStatusReady FoundationLoadBalancerConditionType = "DeploymentStateReady"
+	FoundationLoadBalancerConditionDeploymentStatusReady FoundationLoadBalancerConditionType = "DeploymentStatusReady"
 	// FoundationLoadBalancerConditionOperationStatusReady reflects the operation status of the load balancer instance.
-	FoundationLoadBalancerConditionOperationStatusReady FoundationLoadBalancerConditionType = "OperationStateReady"
+	FoundationLoadBalancerConditionOperationStatusReady FoundationLoadBalancerConditionType = "OperationStatusReady"
 
 	FoundationLoadBalancerSizeSmall  FoundationLoadBalancerSize = "small"
 	FoundationLoadBalancerSizeMedium FoundationLoadBalancerSize = "medium"

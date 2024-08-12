@@ -145,6 +145,10 @@ type FoundationLoadBalancerNodeStatus struct {
 
 // FoundationLoadBalancerConfigStatus describes the observed state of the Foundation Load Balancer.
 type FoundationLoadBalancerConfigStatus struct {
+	// Version describes the current version of the Foundation Load Balancer.
+	//
+	// +optional
+	Version string `json:"version,omitempty"`
 	// Nodes list specific information about each deployed node.
 	//
 	// +optional

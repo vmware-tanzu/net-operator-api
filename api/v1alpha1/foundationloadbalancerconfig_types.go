@@ -1,5 +1,6 @@
-// Copyright (c) 2024 VMware, Inc. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024 Broadcom. All Rights Reserved.
+// Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
+// and/or its subsidiaries.
 
 package v1alpha1
 
@@ -131,14 +132,17 @@ type CustomPlacementSpec struct {
 type FoundationLoadBalancerNodeStatus struct {
 	// NodeID is a node's unique identifier.
 	NodeID string `json:"nodeID"`
+
 	// ManagementNetworkInterface defines the management NetworkInterface if it exists.
 	//
 	// +optional
 	ManagementNetworkInterface NetworkInterfaceReference `json:"managementNetworkInterface,omitempty"`
+
 	// WorkloadNetworkInterface defines the workload NetworkInterfaces if they exist.
 	//
 	// +optional
 	WorkloadNetworkInterfaces []NetworkInterfaceReference `json:"workloadNetworkInterfaces,omitempty"`
+
 	// VIPNetworkInterface is the interface bound to the Virtual IP Network.
 	VIPNetworkInterface NetworkInterfaceReference `json:"vipNetworkInterface"`
 }
@@ -149,14 +153,34 @@ type FoundationLoadBalancerConfigStatus struct {
 	//
 	// +optional
 	Version string `json:"version,omitempty"`
+
 	// Nodes list specific information about each deployed node.
 	//
 	// +optional
 	Nodes []FoundationLoadBalancerNodeStatus `json:"nodes,omitempty"`
+
+	// VirtualServerIPPoolsUtilization describes the current states of virtual server IP addresses utilization.
+	//
+	// +optional
+	VirtualServerIPPoolsUtilization VirtualIPPoolsUtilization `json:"virtualServerIPPoolsUtilization,omitempty"`
+
 	// Conditions describes states of the load balancer at specific points in time.
 	//
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// VirtualIPPoolsUtilization defines the IP addresses utilization for virtual IPPools resource.
+type VirtualIPPoolsUtilization struct {
+	// IPsAllocated represents the total number of virtual IP addresses currently allocated to services.
+	//
+	// +optional
+	IPsAllocated int64 `json:"ipsAllocated,omitempty"`
+
+	// IPsAvailable represents the total number of virtual IP addresses eligible to be used for services.
+	//
+	// +optional
+	IPsAvailable int64 `json:"ipsAvailable,omitempty"`
 }
 
 // FoundationLoadBalancerConfigSpec defines the configuration for a vSphere Foundation Load Balancer.

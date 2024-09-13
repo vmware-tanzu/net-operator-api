@@ -1,5 +1,6 @@
-// Copyright (c) 2020-2024 VMware, Inc. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2020-2024 Broadcom. All Rights Reserved.
+// Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
+// and/or its subsidiaries.
 
 package v1alpha1
 
@@ -42,13 +43,6 @@ type VSphereDistributedNetworkCondition struct {
 	Message string `json:"message,omitempty"`
 	// Provides a timestamp for when the VSphereDistributedNetwork object last transitioned from one status to another.
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" patchStrategy:"replace"`
-}
-
-type IPPoolReference struct {
-	// Name of the IPPool resource being referenced.
-	Name string `json:"name"`
-	// API version of the referent.
-	APIVersion string `json:"apiVersion,omitempty"`
 }
 
 // VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.

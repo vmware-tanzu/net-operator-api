@@ -78,14 +78,6 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	//
 	// +optional
 	SingleNodeAvailabilityMode *SingleModeAvailabilityMode `json:"singleNodeSpec,omitempty"`
-
-	// PlacementSpec is optional configuration defining custom placement of load balancer nodes.
-	//
-	// If Zones are specified, this field is ignored.
-	// If Zones are not specified, this field must be set.
-	//
-	// +optional
-	PlacementSpec []CustomPlacementSpec `json:"placementSpec,omitempty"`
 }
 
 // ActivePassiveAvailabilityMode deploys two nodes in Active-Passive mode where one node is set into
@@ -109,21 +101,6 @@ type SingleModeAvailabilityMode struct {
 	// +kubebuilder:validation:Maximum=1
 	// +kubebuilder:default=1
 	Replicas uint32 `json:"replicas"`
-}
-
-// CustomPlacementSpec defines specific configurations for placing load balancer nodes.
-type CustomPlacementSpec struct {
-	// Cluster is the Managed Object ID of a vSphere ClusterComputeResource for placement outside a Supervisor.
-	Cluster string `json:"cluster"`
-
-	// ResourcePool is the Managed Object ID of a vSphere ResourcePool for placement outside a Supervisor.
-	ResourcePool string `json:"resourcePool"`
-
-	// Folder is the Managed Object ID of a vSphere Folder for placement outside a Supervisor.
-	// Defaults to the Namespaces folder created on the cluster.
-	//
-	// +optional
-	Folder string `json:"folder,omitempty"`
 }
 
 // Status objects. Specs are realized into Statuses.

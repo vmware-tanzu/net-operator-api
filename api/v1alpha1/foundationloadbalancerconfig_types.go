@@ -37,7 +37,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// Size describes the node form factor.
 	//
 	// +kubebuilder:validation:Enum=small;medium;large;xlarge
-	// +kubebuilder:default=small
+	// +kubebuilder:default:=small
 	Size FoundationLoadBalancerSize `json:"size"`
 
 	// StoragePolicy is a vSphere Storage Policy ID which defines node storage placement.
@@ -60,7 +60,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 
 	// AvailabilityMode defines how the availability of the solution is deployed and configured.
 	// +kubebuilder:validation:Enum=active-passive;single-node
-	// +kubebuilder:default=active-passive
+	// +kubebuilder:default:=active-passive
 	AvailabilityMode FoundationLoadBalancerAvailabilityMode `json:"availabilityMode"`
 
 	// ActivePassiveAvailabilityMode configures the load balancer in active-passive configuration.
@@ -88,7 +88,7 @@ type ActivePassiveAvailabilityMode struct {
 	// Replicas describes the total number of deployed nodes. Defaults to 2.
 	//
 	// +kubebuilder:validation:Maximum=2
-	// +kubebuilder:default=2
+	// +kubebuilder:default:=2
 	Replicas uint32 `json:"replicas"`
 }
 
@@ -99,7 +99,7 @@ type SingleModeAvailabilityMode struct {
 	// Replicas describes the total number of deployed nodes. Defaults to 1.
 	//
 	// +kubebuilder:validation:Maximum=1
-	// +kubebuilder:default=1
+	// +kubebuilder:default:=1
 	Replicas uint32 `json:"replicas"`
 }
 
@@ -203,27 +203,31 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	// The VirtualServerIPPools must fall within the subnet of the VirtualIPNetwork
 	// or one of these subnets.
 	//
+	// +kubebuilder:default:={}
 	// +optional
-	VirtualServerSubnets []string `json:"virtualServerSubnets,omitempty"`
+	VirtualServerSubnets []string `json:"virtualServerSubnets"`
 
 	// DNSServers is the list of servers used for DNS traffic.
 	// These servers must be reachable from the network configured
 	// for management traffic.
 	//
+	// +kubebuilder:default:={}
 	// +optional
-	DNSServers []string `json:"dnsServers,omitempty"`
+	DNSServers []string `json:"dnsServers"`
 
 	// DNSSearchDomains are the domains resolvable on the specified DNSServers.
 	//
+	// +kubebuilder:default:={}
 	// +optional
-	DNSSearchDomains []string `json:"dnsSearchDomains,omitempty"`
+	DNSSearchDomains []string `json:"dnsSearchDomains"`
 
 	// NTPServers are the servers used to sync time across nodes.
 	// These servers must be reachable from the network configured
 	// for management traffic.
 	//
+	// +kubebuilder:default:={}
 	// +optional
-	NTPServers []string `json:"ntpServers,omitempty"`
+	NTPServers []string `json:"ntpServers"`
 
 	// SyslogEndpoint configures the syslog server. It accepts a protocol, host and port.
 	// If using TLS, you must configure a TLS CA that is capable of verifying the endpoint certificate.

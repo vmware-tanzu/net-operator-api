@@ -52,11 +52,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 
 	// Zones contains the names of zones eligible for placing nodes. Zones must be one of the
 	// AvailabilityZones defined and eligible for placement on the cluster.
-	//
-	// If no zones are provided, you must provide a PlacementSpec.
-	//
-	// +optional
-	Zones []string `json:"zones,omitempty"`
+	Zones []string `json:"zones"`
 
 	// AvailabilityMode defines how the availability of the solution is deployed and configured.
 	// +kubebuilder:validation:Enum=active-passive;single-node
@@ -77,7 +73,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// the health of the underlying infrastructure. You must select
 	//
 	// +optional
-	SingleNodeAvailabilityMode *SingleModeAvailabilityMode `json:"singleNodeSpec,omitempty"`
+	SingleNodeAvailabilityMode *SingleNodeAvailabilityMode `json:"singleNodeSpec,omitempty"`
 }
 
 // ActivePassiveAvailabilityMode deploys two nodes in Active-Passive mode where one node is set into
@@ -92,10 +88,10 @@ type ActivePassiveAvailabilityMode struct {
 	Replicas uint32 `json:"replicas"`
 }
 
-// SingleModeAvailabilityMode defines single node configuration. Single node configuration involves
+// SingleNodeAvailabilityMode defines single node configuration. Single node configuration involves
 // trading availability in return for reduced resource consumption. Upon node failure, redeployment will
 // be attempted on a best-effort basis.
-type SingleModeAvailabilityMode struct {
+type SingleNodeAvailabilityMode struct {
 	// Replicas describes the total number of deployed nodes. Defaults to 1.
 	//
 	// +kubebuilder:validation:Maximum=1

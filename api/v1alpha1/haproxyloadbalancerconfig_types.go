@@ -68,8 +68,10 @@ type HAProxyLoadBalancerConfigStatus struct {
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:deprecatedversion:warning="HAProxyLoadBalancerConfig API is deprecated with vSphere 9.0. Use FoundationLoadBalancerConfig or AviLoadBalancerConfig API from netoperator.vmware.com instead."
 
 // HAProxyLoadBalancerConfig is the Schema for the HAProxyLoadBalancerConfigs API
+// Deprecated: HAProxy is deprecated with vSphere 9.0. Use Foundation Load Balancer or Avi with vSphere networking instead.
 type HAProxyLoadBalancerConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

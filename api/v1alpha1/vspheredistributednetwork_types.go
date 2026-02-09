@@ -74,6 +74,18 @@ type VSphereDistributedNetworkSpec struct {
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
 	// to an empty string.
 	SubnetMask string `json:"subnetMask"`
+
+	// Gateway6 setting to use for network interfaces for IPv6. This field should only be set when using
+	// IPAssignmentModeStaticPool and dual-stack mode. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
+	// to an empty string.
+	// +optional
+	Gateway6 string `json:"gateway6,omitempty"`
+
+	// Prefix6 setting to use for network interfaces for IPv6. This field should only be set when using
+	// IPAssignmentModeStaticPool and dual-stack mode. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
+	// to an empty string or unset.
+	// +optional
+	Prefix6 *int32 `json:"prefix6,omitempty"`
 }
 
 // VLANType represents the type of VLAN configuration

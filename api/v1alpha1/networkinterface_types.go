@@ -30,6 +30,11 @@ type IPConfig struct {
 	Gateway string `json:"gateway"`
 	// SubnetMask setting.
 	SubnetMask string `json:"subnetMask"`
+	// Prefix is the prefix length for IPv6 addresses.
+	// This field is optional and only used for IPv6 addresses.
+	// For IPv4 addresses, subnetMask should be used instead.
+	// +optional
+	Prefix *int32 `json:"prefix,omitempty"`
 }
 
 // NetworkInterfaceProviderReference contains info to locate a network interface provider object.
@@ -139,6 +144,18 @@ const (
 	NetworkInterfaceIPAssignmentModeNone NetworkInterfaceIPAssignmentMode = "none"
 )
 
+// NetworkInterfaceIPFamilyPolicy defines the IP family policy for a network interface
+type NetworkInterfaceIPFamilyPolicy string
+
+const (
+	// NetworkInterfaceIPFamilyPolicyIPv4Only indicates only IPv4 addresses will be allocated.
+	NetworkInterfaceIPFamilyPolicyIPv4Only NetworkInterfaceIPFamilyPolicy = "IPv4Only"
+	// NetworkInterfaceIPFamilyPolicyIPv6Only indicates only IPv6 addresses will be allocated.
+	NetworkInterfaceIPFamilyPolicyIPv6Only NetworkInterfaceIPFamilyPolicy = "IPv6Only"
+	// NetworkInterfaceIPFamilyPolicyDualStack indicates both IPv4 and IPv6 addresses will be allocated.
+	NetworkInterfaceIPFamilyPolicyDualStack NetworkInterfaceIPFamilyPolicy = "DualStack"
+)
+
 // NetworkInterfacePortAllocation describes the settings for network interface port allocation request.
 type NetworkInterfacePortAllocation struct {
 	// NodeName is the node where port must be allocated for this network interface.
@@ -166,6 +183,15 @@ type NetworkInterfaceSpec struct {
 	// provider to surface any information in status.externalID.
 	// +optional
 	ExternalID string `json:"externalID,omitempty"`
+	// IPFamilyPolicy specifies the IP family policy for this network interface.
+	// Values: IPv4Only, IPv6Only, DualStack.
+	// When set to IPv4Only, only IPv4 addresses will be allocated.
+	// When set to IPv6Only, only IPv6 addresses will be allocated.
+	// When set to DualStack, both IPv4 and IPv6 addresses will be allocated.
+	// If not specified, one IP per IPFamily will be allocated from the pools.
+	// +optional
+	// +kubebuilder:validation:Enum=IPv4Only;IPv6Only;DualStack
+	IPFamilyPolicy NetworkInterfaceIPFamilyPolicy `json:"ipFamilyPolicy,omitempty"`
 }
 
 // NetworkInterfaceReference is an object that points to a NetworkInterface.

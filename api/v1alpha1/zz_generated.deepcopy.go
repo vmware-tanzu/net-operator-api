@@ -1432,8 +1432,8 @@ func (in *VSphereDistributedNetworkSpec) DeepCopyInto(out *VSphereDistributedNet
 		*out = make([]IPPoolReference, len(*in))
 		copy(*out, *in)
 	}
-	if in.Prefix6 != nil {
-		in, out := &in.Prefix6, &out.Prefix6
+	if in.IPv6Prefix != nil {
+		in, out := &in.IPv6Prefix, &out.IPv6Prefix
 		*out = new(int32)
 		**out = **in
 	}

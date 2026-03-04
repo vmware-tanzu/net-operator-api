@@ -9,6 +9,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -1211,6 +1212,11 @@ func (in *NetworkStatus) DeepCopyInto(out *NetworkStatus) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.SupportedIPFamilies != nil {
+		in, out := &in.SupportedIPFamilies, &out.SupportedIPFamilies
+		*out = make([]corev1.IPFamily, len(*in))
+		copy(*out, *in)
 	}
 }
 

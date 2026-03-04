@@ -29,10 +29,11 @@ type IPConfig struct {
 	// Gateway setting.
 	Gateway string `json:"gateway"`
 	// SubnetMask setting.
+	// Deprecated: Use Prefix instead. If Prefix is set, SubnetMask is ignored.
 	SubnetMask string `json:"subnetMask"`
-	// Prefix is the prefix length for IPv6 addresses.
-	// This field is optional and only used for IPv6 addresses.
-	// For IPv4 addresses, subnetMask should be used instead.
+	// Prefix is the prefix length for the IP address (e.g. 24 for a /24 IPv4 network,
+	// 64 for a /64 IPv6 network). If set, this field takes precedence over SubnetMask
+	// for both IPv4 and IPv6 addresses.
 	// +optional
 	Prefix *int32 `json:"prefix,omitempty"`
 }
@@ -185,10 +186,15 @@ type NetworkInterfaceSpec struct {
 	ExternalID string `json:"externalID,omitempty"`
 	// IPFamilyPolicy specifies the IP family policy for this network interface.
 	// Values: IPv4Only, IPv6Only, DualStack.
-	// When set to IPv4Only, only IPv4 addresses will be allocated.
-	// When set to IPv6Only, only IPv6 addresses will be allocated.
+	// When set to IPv4Only, only an IPv4 address will be allocated.
+	// When set to IPv6Only, only an IPv6 address will be allocated.
 	// When set to DualStack, both IPv4 and IPv6 addresses will be allocated.
-	// If not specified, one IP per IPFamily will be allocated from the pools.
+	// If not specified, the allocation is determined by the IP families available in the
+	// IPPools referenced by the backing Network: if both IPv4 and IPv6 pools are present,
+	// one address per IP family will be allocated (equivalent to DualStack); if only a
+	// single IP family is available, only one address of that family will be allocated.
+	// Users can discover the supported IP families by inspecting the SupportedIPFamilies
+	// field on the Network object.
 	// +optional
 	// +kubebuilder:validation:Enum=IPv4Only;IPv6Only;DualStack
 	IPFamilyPolicy NetworkInterfaceIPFamilyPolicy `json:"ipFamilyPolicy,omitempty"`

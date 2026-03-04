@@ -94,6 +94,13 @@ type NetworkStatus struct {
 	// Conditions is an array of current observed network conditions.
 	// +optional
 	Conditions []NetworkCondition `json:"conditions,omitempty"`
+	// SupportedIPFamilies lists the IP families that are available on this network,
+	// as determined by the backing network provider (e.g. the IP families of the
+	// IPPools referenced by a VSphereDistributedNetwork). Users can inspect this field
+	// to understand which IPFamilyPolicy values are valid when creating a NetworkInterface
+	// on this network.
+	// +optional
+	SupportedIPFamilies []corev1.IPFamily `json:"supportedIPFamilies,omitempty"`
 }
 
 // NetworkReference is an object that points to a Network.

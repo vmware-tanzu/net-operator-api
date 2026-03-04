@@ -53,12 +53,19 @@ type VSphereDistributedNetworkSpec struct {
 	// PortGroupID is an existing vSphere Distributed PortGroup identifier.
 	PortGroupID string `json:"portGroupID"`
 
-	// IPAssignmentMode to use for network interfaces. If unset, defaults to IPAssignmentModeStaticPool.
+	// IPAssignmentMode to use for IPv4 addresses on network interfaces. If unset, defaults to IPAssignmentModeStaticPool.
 	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPPools, Gateway and SubnetMask
 	// fields should be empty/unset. When using IPAssignmentModeNone, no IP will be assigned
 	// and no DHCP client will be configured.
 	// +optional
 	IPAssignmentMode IPAssignmentModeType `json:"ipAssignmentMode,omitempty"`
+
+	// IPv6AssignmentMode to use for IPv6 addresses on network interfaces in dual-stack setups.
+	// If unset, defaults to the same value as IPAssignmentMode.
+	// This allows different assignment modes for IPv4 and IPv6, for example static IPv4 pool
+	// assignment combined with DHCPv6 for IPv6.
+	// +optional
+	IPv6AssignmentMode IPAssignmentModeType `json:"ipv6AssignmentMode,omitempty"`
 
 	// IPPools references list of IPPool objects. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set

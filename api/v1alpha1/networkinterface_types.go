@@ -145,7 +145,7 @@ const (
 	NetworkInterfaceIPAssignmentModeNone NetworkInterfaceIPAssignmentMode = "none"
 )
 
-// NetworkInterfaceIPFamilyPolicy defines the IP family policy for a network interface
+// NetworkInterfaceIPFamilyPolicy defines the IP family policy for a network interface.
 type NetworkInterfaceIPFamilyPolicy string
 
 const (

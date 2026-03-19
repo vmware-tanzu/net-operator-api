@@ -22,11 +22,11 @@ type NetworkTopologyProviderType string
 const (
 	// NetworkTopologyProviderTypeNSXT is the provider type for NSX Container Plugin Tier1-per-namespace network
 	// topology.
-	NetworkTopologyProviderTypeNSXT NetworkTopologyProviderType = "nsx_container_plugin"
+	NetworkTopologyProviderTypeNSXT NetworkTopologyProviderType = "nsx-t"
 	// NetworkTopologyProviderTypeVDS is the provider type for vSphere Networking topology.
-	NetworkTopologyProviderTypeVDS NetworkTopologyProviderType = "vsphere_network"
+	NetworkTopologyProviderTypeVDS NetworkTopologyProviderType = "vsphere-distributed"
 	// NetworkTopologyProviderTypeNSXTVPC is the provider type for NSX-T VPC network topology.
-	NetworkTopologyProviderTypeNSXTVPC NetworkTopologyProviderType = "nsx_vpc"
+	NetworkTopologyProviderTypeNSXTVPC NetworkTopologyProviderType = "nsx-t_vpc"
 )
 
 type NetworkTopologyProviderSpec struct {

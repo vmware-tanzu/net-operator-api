@@ -72,6 +72,9 @@ const (
 	// NetworkInterfaceFailureReasonNetworkDeleted indicates NetworkInterface is in failed state because
 	// the underlying Network resource has been deleted.
 	NetworkInterfaceFailureReasonNetworkDeleted NetworkInterfaceConditionReason = "NetworkDeleted"
+	// NetworkInterfaceFailureReasonUnsupportedIPFamilyPolicy indicates NetworkInterface is in failed state
+	// because the requested IPFamilyPolicy is not supported by the Network's SupportedIPFamilies.
+	NetworkInterfaceFailureReasonUnsupportedIPFamilyPolicy NetworkInterfaceConditionReason = "UnsupportedIPFamilyPolicy"
 )
 
 // NetworkInterfaceCondition describes the state of a NetworkInterface at a certain point.

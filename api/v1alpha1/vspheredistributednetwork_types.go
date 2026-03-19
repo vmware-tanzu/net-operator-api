@@ -57,13 +57,15 @@ type VSphereDistributedNetworkSpec struct {
 	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPPools, Gateway and SubnetMask
 	// fields should be empty/unset. When using IPAssignmentModeNone, no IP will be assigned
 	// and no DHCP client will be configured.
+	// Note: For IPv6 address assignment, see IPv6AssignmentMode.
 	// +optional
 	IPAssignmentMode IPAssignmentModeType `json:"ipAssignmentMode,omitempty"`
 
-	// IPv6AssignmentMode to use for IPv6 addresses on network interfaces in dual-stack setups.
-	// If unset, defaults to the same value as IPAssignmentMode.
-	// This allows different assignment modes for IPv4 and IPv6, for example static IPv4 pool
-	// assignment combined with DHCPv6 for IPv6.
+	// IPv6AssignmentMode to use for IPv6 addresses on network interfaces. If unset, defaults to
+	// IPAssignmentModeNone (IPv6 disabled) for backward compatibility with existing IPv4-only
+	// deployments. To enable IPv6 support, explicitly set this field to IPAssignmentModeStaticPool
+	// or IPAssignmentModeDHCP. This allows different assignment modes for IPv4 and IPv6, for
+	// example static IPv4 pool assignment combined with DHCPv6 for IPv6.
 	// +optional
 	IPv6AssignmentMode IPAssignmentModeType `json:"ipv6AssignmentMode,omitempty"`
 
@@ -82,15 +84,16 @@ type VSphereDistributedNetworkSpec struct {
 	// to an empty string.
 	SubnetMask string `json:"subnetMask"`
 
-	// IPv6Gateway is the default gateway to use for network interfaces for IPv6. This field should
-	// only be set when using IPAssignmentModeStaticPool and dual-stack or IPv6-only mode.
-	// For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be empty/unset.
+	// IPv6Gateway setting to use for IPv6 addresses on network interfaces. This field should only
+	// be set when using IPv6AssignmentMode IPAssignmentModeStaticPool. For all other modes
+	// (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be empty/unset.
 	// +optional
 	IPv6Gateway string `json:"ipv6Gateway,omitempty"`
 
 	// IPv6Prefix is the prefix length for IPv6 addresses assigned to network interfaces (e.g. 64
-	// for a /64 network). This field should only be set when using IPAssignmentModeStaticPool and
-	// dual-stack or IPv6-only mode. For all other modes, this should be unset.
+	// for a /64 network). This field should only be set when using IPv6AssignmentMode
+	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone),
+	// this should be unset.
 	// +optional
 	IPv6Prefix *int32 `json:"ipv6Prefix,omitempty"`
 }

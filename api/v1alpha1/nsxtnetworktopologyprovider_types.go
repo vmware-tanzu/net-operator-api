@@ -8,8 +8,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:resource:path=ncpnetworktopologyproviders,singular=ncpnetworktopologyprovider,shortName=ncpntp
-type NCPNetworkTopologyProviderSpec struct {
+// +kubebuilder:resource:path=nsxtnetworktopologyproviders,singular=nsxtnetworktopologyprovider,shortName=nsxtntp
+type NSXTNetworkTopologyProviderSpec struct {
 	// PodCidrs specifies the CIDR blocks for Pod networking.
 	PodCidrs []string `json:"podCidrs,omitempty"`
 	// IngressCidrs specifies the CIDR blocks for ingress traffic.
@@ -31,24 +31,24 @@ type NCPNetworkTopologyProviderSpec struct {
 // +genclient
 // +kubebuilder:object:root=true
 
-// NCPNetworkTopologyProvider is the Schema for the ncpnetworktopologyproviders API.
-// A NCPNetworkTopologyProvider represents a topology provider for NSX Container Plugin networks for a Supervisor.
-type NCPNetworkTopologyProvider struct {
+// NSXTNetworkTopologyProvider is the Schema for the nsxtnetworktopologyproviders API.
+// A NSXTNetworkTopologyProvider represents a topology provider for NSX-T networks for a Supervisor.
+type NSXTNetworkTopologyProvider struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec NCPNetworkTopologyProviderSpec `json:"spec,omitempty"`
+	Spec NSXTNetworkTopologyProviderSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// NCPNetworkTopologyProviderList contains a list of NCPNetworkTopologyProvider.
-type NCPNetworkTopologyProviderList struct {
+// NSXTNetworkTopologyProviderList contains a list of NSXTNetworkTopologyProvider.
+type NSXTNetworkTopologyProviderList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []NCPNetworkTopologyProvider `json:"items"`
+	Items           []NSXTNetworkTopologyProvider `json:"items"`
 }
 
 func init() {
-	RegisterTypeWithScheme(&NCPNetworkTopologyProvider{}, &NCPNetworkTopologyProviderList{})
+	RegisterTypeWithScheme(&NSXTNetworkTopologyProvider{}, &NSXTNetworkTopologyProviderList{})
 }

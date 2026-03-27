@@ -8,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:resource:path=nsxtnetworktopologyproviders,singular=nsxtnetworktopologyprovider,shortName=nsxtntp
 type NSXTNetworkTopologyProviderSpec struct {
 	// PodCidrs specifies the CIDR blocks for Pod networking.
 	PodCidrs []string `json:"podCidrs,omitempty"`
@@ -28,8 +27,8 @@ type NSXTNetworkTopologyProviderSpec struct {
 	RoutedMode *bool `json:"routedMode,omitempty"`
 }
 
-// +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=nsxtntp,scope=Cluster
 
 // NSXTNetworkTopologyProvider is the Schema for the nsxtnetworktopologyproviders API.
 // A NSXTNetworkTopologyProvider represents a topology provider for NSX-T networks for a Supervisor.

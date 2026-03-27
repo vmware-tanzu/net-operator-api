@@ -6,39 +6,36 @@ package v1alpha1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-type NetworkTopologyProviderReference struct {
+type TypedObjectReference struct {
 	// APIGroup is the group for the resource being referenced.
 	APIGroup string `json:"apiGroup"`
 	// Kind is the type of resource being referenced.
 	Kind string `json:"kind"`
 	// Name is the name of resource being referenced.
 	Name string `json:"name"`
-	// API version of the referent.
-	APIVersion string `json:"apiVersion,omitempty"`
 }
 
-type NetworkTopologyProviderType string
+type NetworkTopologyType string
 
 const (
-	// NetworkTopologyProviderTypeNSXT is the provider type for NSX Container Plugin Tier1-per-namespace network
-	// topology.
-	NetworkTopologyProviderTypeNSXT NetworkTopologyProviderType = "nsx-t"
-	// NetworkTopologyProviderTypeVDS is the provider type for vSphere Networking topology.
-	NetworkTopologyProviderTypeVDS NetworkTopologyProviderType = "vsphere-distributed"
-	// NetworkTopologyProviderTypeNSXTVPC is the provider type for NSX-T VPC network topology.
-	NetworkTopologyProviderTypeNSXTVPC NetworkTopologyProviderType = "nsx-t_vpc"
+	// NetworkTopologyTypeNSXT is the type for NSX Container Plugin Tier1-per-namespace network topology.
+	NetworkTopologyTypeNSXT NetworkTopologyType = "nsx-t"
+	// NetworkTopologyTypeVDS is the type for vSphere Networking topology.
+	NetworkTopologyTypeVDS NetworkTopologyType = "vsphere-distributed"
+	// NetworkTopologyTypeNSXTVPC is the type for NSX-T VPC network topology.
+	NetworkTopologyTypeNSXTVPC NetworkTopologyType = "nsx-t_vpc"
 )
 
 type NetworkTopologyProviderSpec struct {
-	// Type describes type of network topology provider.
-	// +kubebuilder:validation:Enum=nsx_container_plugin;vsphere_network;nsx_vpc
-	Type NetworkTopologyProviderType `json:"type"`
-	// ProviderRef is reference to a network topology provider object that provides the details for this type of network topology provider
-	ProviderRef NetworkTopologyProviderReference `json:"providerRef"`
+	// Type describes type of network topology.
+	// +kubebuilder:validation:Enum=nsx-t;vsphere-distributed;nsx-t_vpc
+	Type NetworkTopologyType `json:"type"`
+	// ProviderRef is reference to a network topology provider object that provides the details for this type of network topology provider.
+	ProviderRef TypedObjectReference `json:"providerRef"`
 }
 
-// +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=ntp,scope=Cluster
 
 // NetworkTopologyProvider is the Schema for the networktopologyproviders API.
 // A NetworkTopologyProvider represents a network topology provider configuration.

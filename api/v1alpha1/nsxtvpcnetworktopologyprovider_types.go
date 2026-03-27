@@ -8,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:resource:path=nsxtvpcnetworktopologyproviders,singular=nsxtvpcnetworktopologyprovider,shortName=nstp
 type NSXTVPCNetworkTopologyProviderSpec struct {
 	// NsxProject is the default Project for VPCs in the Supervisor, including the System VPC, and Supervisor Services
 	// VPC. It needs to be NSX path of Project.
@@ -23,8 +22,8 @@ type NSXTVPCNetworkTopologyProviderSpec struct {
 	DefaultPrivateCidrs []string `json:"defaultPrivateCidrs,omitempty"`
 }
 
-// +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=nsxtvpcntp,scope=Cluster
 
 // NSXTVPCNetworkTopologyProvider is the Schema for the nsxtvpcnetworktopologyproviders API.
 // A NSXTVPCNetworkTopologyProvider represents a topology provider for NSX VPC networks for a Supervisor.

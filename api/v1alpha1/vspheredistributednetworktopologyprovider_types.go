@@ -8,13 +8,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:resource:path=vspheredistributednetworktopologyproviders,singular=vspheredistributednetworktopologyprovider,shortName=vsdntp
 type VSphereDistributedNetworkTopologyProviderSpec struct {
 	// TODO: placeholder. Unclear if anything is needed here.
 }
 
-// +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=vdsntp,scope=Cluster
 
 // VSphereDistributedNetworkTopologyProvider is the Schema for the vspheredistributednetworktopologyproviders API.
 // A VSphereDistributedNetworkTopologyProvider represents a topology provider for vSphere distributed networks for a Supervisor.

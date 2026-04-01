@@ -35,6 +35,8 @@ type IPConfig struct {
 	// 64 for a /64 IPv6 network). If set, this field takes precedence over SubnetMask
 	// for both IPv4 and IPv6 addresses.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=128
 	Prefix *int32 `json:"prefix,omitempty"`
 }
 
@@ -116,7 +118,7 @@ type NetworkInterfaceStatus struct {
 	// network interface on the backing network. It is only valid on requested node and is set
 	// only if port allocation was requested.
 	ConnectionID string `json:"connectionID,omitempty"`
-	// IPAssignmentMode indicates how IP addresses are assigned to this interface.
+	// IPAssignmentMode indicates how IPv4 addresses are assigned to this interface.
 	// When unset:
 	// - If IP is assigned, it is assumed to be NetworkInterfaceIPAssignmentModeStaticPool.
 	// - If IP is unassigned, it is assumed to be NetworkInterfaceIPAssignmentModeDHCP.
@@ -125,6 +127,16 @@ type NetworkInterfaceStatus struct {
 	// When set to NetworkInterfaceIPAssignmentModeNone, indicates no IP assignment should be performed.
 	// +optional
 	IPAssignmentMode NetworkInterfaceIPAssignmentMode `json:"ipAssignmentMode,omitempty"`
+	// IPv6AssignmentMode indicates how IPv6 addresses are assigned to this interface.
+	// This field is independent of IPAssignmentMode, allowing different assignment modes for IPv4
+	// and IPv6 (e.g., IPv4 uses DHCP while IPv6 uses static pool).
+	// When unset, defaults to IPAssignmentModeNone (IPv6 disabled) for backward compatibility with existing IPv4-only
+	// deployments.
+	// When set to NetworkInterfaceIPAssignmentModeStaticPool, indicates IPv6 is assigned from a static pool.
+	// When set to NetworkInterfaceIPAssignmentModeDHCP, indicates IPv6 should be obtained via DHCPv6.
+	// When set to NetworkInterfaceIPAssignmentModeNone, indicates no IPv6 assignment should be performed.
+	// +optional
+	IPv6AssignmentMode NetworkInterfaceIPAssignmentMode `json:"ipv6AssignmentMode,omitempty"`
 }
 
 type NetworkInterfaceType string

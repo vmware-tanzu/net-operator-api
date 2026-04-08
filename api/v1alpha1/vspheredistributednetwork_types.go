@@ -54,8 +54,8 @@ type VSphereDistributedNetworkSpec struct {
 	PortGroupID string `json:"portGroupID"`
 
 	// IPAssignmentMode to use for IPv4 addresses on network interfaces. If unset, defaults to IPAssignmentModeStaticPool.
-	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPPools, Gateway and SubnetMask
-	// fields should be empty/unset. When using IPAssignmentModeNone, no IP will be assigned
+	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPv4 IPPools, Gateway and SubnetMask
+	// fields should be empty/unset. When using IPAssignmentModeNone, no IPv4 IP will be assigned
 	// and no DHCP client will be configured.
 	// Note: For IPv6 address assignment, see IPv6AssignmentMode.
 	// +optional
@@ -95,6 +95,8 @@ type VSphereDistributedNetworkSpec struct {
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone),
 	// this should be unset.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=128
 	IPv6Prefix *int32 `json:"ipv6Prefix,omitempty"`
 }
 

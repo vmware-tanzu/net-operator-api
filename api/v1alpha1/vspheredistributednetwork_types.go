@@ -23,6 +23,15 @@ const (
 	VsphereDistributedNetworkIPPoolPressure VSphereDistributedNetworkConditionType = "IPPoolPressure"
 )
 
+type NetworkModeType string
+
+const (
+	// NetworkModeManagement indicates the network is used for management traffic.
+	NetworkModeManagement NetworkModeType = "MANAGEMENT"
+	// NetworkModeWorkload indicates the network is used for workload traffic.
+	NetworkModeWorkload NetworkModeType = "WORKLOAD"
+)
+
 type IPAssignmentModeType string
 
 const (
@@ -36,6 +45,21 @@ const (
 	// The operator will not assign an IP and no DHCP client will be configured.
 	IPAssignmentModeNone IPAssignmentModeType = "none"
 )
+
+// VSphereDistributedNetworkIPRange is the static IP range for a VSphereDistributedNetwork.
+type VSphereDistributedNetworkIPRange struct {
+	// address is the starting IPv4 address of the range.
+	// +kubebuilder:validation:Format=ipv4
+	// +kubebuilder:validation:MinLength=7
+	// +kubebuilder:validation:MaxLength=15
+	// +required
+	Address string `json:"address,omitempty"`
+
+	// count is the number of addresses in the range when using static range assignment.
+	// +kubebuilder:validation:Minimum=1
+	// +required
+	Count int64 `json:"count,omitempty"`
+}
 
 // VSphereDistributedNetworkCondition describes the state of a VSphereDistributedNetwork at a certain point.
 type VSphereDistributedNetworkCondition struct {
@@ -65,8 +89,20 @@ type VSphereDistributedNetworkCondition struct {
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" patchStrategy:"replace"`
 }
 
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.gateway) || self.gateway == ”) : true",message="Gateway must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.subnetMask) || self.subnetMask == ”) : true",message="SubnetMask must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.addressRanges) || size(self.addressRanges) == 0) : true",message="AddressRanges must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.ipPools) || size(self.ipPools) == 0) : true",message="IPPools must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != ”) : true",message="Gateway is required when IpAssignmentMode is staticpool"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != ”) : true",message="SubnetMask is required when IpAssignmentMode is staticpool"
 // VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.
 type VSphereDistributedNetworkSpec struct {
+	// Mode indicates whether the network is used for MANAGEMENT or WORKLOAD traffic.
+	// +kubebuilder:validation:Enum=MANAGEMENT;WORKLOAD
+	// +kubebuilder:default:=WORKLOAD
+	// +optional
+	Mode NetworkModeType `json:"mode,omitempty"`
+
 	// PortGroupID is an existing vSphere Distributed PortGroup identifier.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
@@ -77,6 +113,9 @@ type VSphereDistributedNetworkSpec struct {
 	// fields should be empty/unset. When using IPAssignmentModeNone, no IPv4 IP will be assigned
 	// and no DHCP client will be configured.
 	// Note: For IPv6 address assignment, see IPv6AssignmentMode.
+	// +kubebuilder:validation:Enum=dhcp;staticpool;none
+	// +kubebuilder:default:=staticpool
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ipAssignmentMode is immutable"
 	// +optional
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
@@ -102,16 +141,22 @@ type VSphereDistributedNetworkSpec struct {
 	// Gateway is the gateway to use for network interfaces. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
 	// 	to an empty string.
+	// Note: The regex pattern performs IPv4 validation but also allows an empty string for backward compatibility.
+	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
+	// +optional
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
-	Gateway string `json:"gateway"`
+	Gateway string `json:"gateway,omitempty"`
 
 	// SubnetMask is the subnet mask to use for network interfaces. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
 	// 	to an empty string.
+	// Note: The regex pattern performs IPv4 validation but also allows an empty string for backward compatibility.
+	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
+	// +optional
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
-	SubnetMask string `json:"subnetMask"`
+	SubnetMask string `json:"subnetMask,omitempty"`
 
 	// IPv6Gateway is the IPv6 gateway to use for network interfaces. This field should only
 	// be set when using IPv6AssignmentMode IPAssignmentModeStaticPool. For all other modes
@@ -129,6 +174,12 @@ type VSphereDistributedNetworkSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=128
 	IPv6Prefix *int32 `json:"ipv6Prefix,omitempty"`
+
+	// addressRanges is a list of IP ranges for static IP assignment.
+	// +optional
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=atomic
+	AddressRanges []VSphereDistributedNetworkIPRange `json:"addressRanges,omitempty"`
 }
 
 // VLANType represents the type of VLAN configuration
@@ -291,6 +342,7 @@ type VSphereDistributedNetworkStatus struct {
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 253 && self.metadata.name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')",message="metadata.name must be a lowercase RFC 1123 DNS subdomain (alphanumeric or '-' or '.', each segment starting/ending with alphanumeric; max 253 characters)"
 
 // VSphereDistributedNetwork represents schema for a network backed by a vSphere Distributed PortGroup on vSphere
 // Distributed switch.

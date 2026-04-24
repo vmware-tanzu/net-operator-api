@@ -23,15 +23,6 @@ const (
 	VsphereDistributedNetworkIPPoolPressure VSphereDistributedNetworkConditionType = "IPPoolPressure"
 )
 
-type NetworkModeType string
-
-const (
-	// NetworkModeManagement indicates the network is used for management traffic.
-	NetworkModeManagement NetworkModeType = "MANAGEMENT"
-	// NetworkModeWorkload indicates the network is used for workload traffic.
-	NetworkModeWorkload NetworkModeType = "WORKLOAD"
-)
-
 type IPAssignmentModeType string
 
 const (
@@ -97,12 +88,6 @@ type VSphereDistributedNetworkCondition struct {
 // +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != ”) : true",message="SubnetMask is required when IpAssignmentMode is staticpool"
 // VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.
 type VSphereDistributedNetworkSpec struct {
-	// Mode indicates whether the network is used for MANAGEMENT or WORKLOAD traffic.
-	// +kubebuilder:validation:Enum=MANAGEMENT;WORKLOAD
-	// +kubebuilder:default:=WORKLOAD
-	// +optional
-	Mode NetworkModeType `json:"mode,omitempty"`
-
 	// PortGroupID is an existing vSphere Distributed PortGroup identifier.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).

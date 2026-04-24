@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024 Broadcom. All Rights Reserved.
+// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
 // Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
 // and/or its subsidiaries.
 
@@ -13,9 +13,14 @@ import (
 // which contains credential specifications for a load balancer.
 type ClientSecretReference struct {
 	// Name is the name of resource being referenced.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	Name string `json:"name"`
-	// Namespace of the resource being referenced. If empty, cluster scoped resource is assumed.
+
+	// Namespace is the namespace of the resource being referenced. If empty, cluster scoped resource is assumed.
 	// +kubebuilder:default:=default
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep optional string without pointer (optionalfields). Retain default (forbiddenmarkers).
 	Namespace string `json:"namespace,omitempty"`
 }
 
@@ -36,29 +41,54 @@ const (
 type LoadBalancerConfigCondition struct {
 	// Type is the type of load balancer condition
 	// Can be Ready or Failure
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	Type LoadBalancerConfigConditionType `json:"type"`
+
 	// Status is the status of the condition
 	// Can be True, False, Unknown
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep status without omitempty (requiredfields wire shape).
 	Status corev1.ConditionStatus `json:"status"`
-	// Machine understandable string that gives the reason for the condition's last transition
+
+	// Reason is a machine understandable string that gives the reason for the condition's last transition.
 	// +optional
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	Reason string `json:"reason,omitempty"`
-	// Human-readable message indicating details about last transition
+
+	// Message is a human-readable message indicating details about last transition.
 	// +optional
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	Message string `json:"message,omitempty"`
-	// Provides a timestamp for when the LoadBalancerConfig object last transitioned from one status to another
+
+	// LastTransitionTime is the timestamp for when the LoadBalancerConfig object last transitioned from one status to another.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" patchStrategy:"replace"`
 }
 
 // LoadBalancerConfigProviderReference represents the specific load balancer instance that needs to be configured
 type LoadBalancerConfigProviderReference struct {
 	// APIGroup is the group for the resource being referenced
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	APIGroup string `json:"apiGroup"`
+
 	// Kind is the type of resource being referenced
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	Kind string `json:"kind"`
+
 	// Name is the name of resource being referenced
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	Name string `json:"name"`
-	// API version of the referent
+
+	// APIVersion is the API version of the referent.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep optional string without pointer (optionalfields).
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 
@@ -79,14 +109,21 @@ const (
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.
 	// +kubebuilder:validation:Enum=haproxy;avi;foundation
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep type without omitempty (requiredfields wire shape).
 	Type LoadBalancerConfigType `json:"type"`
+
 	// ProviderRef is reference to a load balancer provider object that provides the details for this type of load balancer
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef"`
 }
 
 // LoadBalancerConfigStatus defines the observed state of LoadBalancerConfig
 type LoadBalancerConfigStatus struct {
-	// Conditions is an array of current observed load balancer conditions
+	// Conditions are an array of current observed load balancer conditions
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep custom LoadBalancerConfigCondition slice (not metav1.Condition).
 	Conditions []LoadBalancerConfigCondition `json:"conditions,omitempty"`
 }
 
@@ -96,11 +133,23 @@ type LoadBalancerConfigStatus struct {
 // +kubebuilder:resource:scope=Cluster
 
 // LoadBalancerConfig is the Schema for the LoadBalancerConfigs API
+//
+//nolint:kubeapilinter // Stable v1alpha1 retention: ignore kubebuilder:subresource:status marker.
 type LoadBalancerConfig struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LoadBalancerConfigSpec   `json:"spec,omitempty"`
+	// Spec describes the desired load balancer configuration.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep nested spec without omitzero (requiredfields).
+	Spec LoadBalancerConfigSpec `json:"spec,omitempty"`
+
+	// Status reflects the observed state of the load balancer configuration.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep nested status without omitzero (requiredfields).
 	Status LoadBalancerConfigStatus `json:"status,omitempty"`
 }
 

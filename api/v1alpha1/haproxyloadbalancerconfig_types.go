@@ -1,5 +1,6 @@
-// Copyright (c) 2020 VMware, Inc. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
+// Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
+// and/or its subsidiaries.
 
 package v1alpha1
 
@@ -19,6 +20,8 @@ type HAProxyLoadBalancerConfigSpec struct {
 	// The strings should include the host, port, and API version, ex.:
 	// https://hostname:port/v1
 	// +kubebuilder:validation:MinItems=1
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	EndPointURLs []string `json:"endPointURLs"`
 
 	// ServerName is used to verify the hostname on the returned
@@ -27,6 +30,8 @@ type HAProxyLoadBalancerConfigSpec struct {
 	// an IP address.
 	// Defaults to the host part parsed from Server
 	// +optional
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	ServerName string `json:"serverName,omitempty"`
 
 	// CredentialSecretRef is an object name of kind Secret.
@@ -57,6 +62,8 @@ type HAProxyLoadBalancerConfigSpec struct {
 	//   username: <base64_Encoded>
 	//   password: <base64_Encoded>
 	// +optional
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid Optional value-typed ref (optionalfields pointer churn).
 	CredentialSecretRef ClientSecretReference `json:"credentialSecretRef,omitempty"`
 }
 
@@ -70,11 +77,23 @@ type HAProxyLoadBalancerConfigStatus struct {
 // +kubebuilder:resource:scope=Cluster
 
 // HAProxyLoadBalancerConfig is the Schema for the HAProxyLoadBalancerConfigs API
+//
+//nolint:kubeapilinter // Stable v1alpha1 retention: ignore kubebuilder:subresource:status marker.
 type HAProxyLoadBalancerConfig struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   HAProxyLoadBalancerConfigSpec   `json:"spec,omitempty"`
+	// Spec describes the desired HAProxy load balancer configuration.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid Optional value-typed ref (optionalfields pointer churn).
+	Spec HAProxyLoadBalancerConfigSpec `json:"spec,omitempty"`
+
+	// Status reflects the observed state of the HAProxy load balancer configuration.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid Optional value-typed ref (optionalfields pointer churn).
 	Status HAProxyLoadBalancerConfigStatus `json:"status,omitempty"`
 }
 

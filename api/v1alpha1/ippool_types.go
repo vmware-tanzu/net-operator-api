@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024 Broadcom. All Rights Reserved.
+// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
 // Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
 // and/or its subsidiaries.
 
@@ -54,29 +54,50 @@ const (
 // IPPoolCondition describes the state of a IPPool at a certain point.
 type IPPoolCondition struct {
 	// Type is the type of IPPool condition.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	Type IPPoolConditionType `json:"type"`
+
 	// Status is the status of the condition.
 	// Can be True, False, Unknown.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep status without omitempty (requiredfields wire shape).
 	Status corev1.ConditionStatus `json:"status"`
-	// Machine understandable string that gives the reason for condition's last transition.
+
+	// Reason is a machine understandable string that gives the reason for condition's last transition.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	Reason string `json:"reason,omitempty"`
-	// Human-readable message indicating details about last transition.
+
+	// Message is a human-readable message indicating details about last transition.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	Message string `json:"message,omitempty"`
 }
 
 // IPPoolSpec defines the desired state of IPPool.
 type IPPoolSpec struct {
 	// StartingAddress represents the starting IP address of the pool.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	StartingAddress string `json:"startingAddress"`
+
 	// AddressCount represents the number of IP addresses in the pool.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep int64 counters without pointers (optionalfields).
 	AddressCount int64 `json:"addressCount"`
 }
 
 // IPPoolStatus defines the current state of IPPool.
 type IPPoolStatus struct {
 	// Allocated represents the number of IP addresses currently allocated to services.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep int64 counters without pointers (optionalfields).
 	Allocated int64 `json:"allocated,omitempty"`
-	// Conditions is an array of current observed IPPool conditions.
+
+	// Conditions are an array of current observed IPPool conditions.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep custom IPPoolCondition slice (not metav1.Condition).
 	Conditions []IPPoolCondition `json:"conditions,omitempty"`
 }
 
@@ -89,18 +110,36 @@ type IPPoolStatus struct {
 // It represents a pool of IP addresses that are owned and managed by the IPPool controller.
 // Provider specific networks can associate themselves with IPPool objects to use
 // network operator's IPAM implementation.
+//
+//nolint:kubeapilinter // Stable v1alpha1 retention: ignore kubebuilder:subresource:status marker.
 type IPPool struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IPPoolSpec   `json:"spec,omitempty"`
+	// Spec describes the desired IP pool configuration.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep nested spec without omitzero (requiredfields).
+	Spec IPPoolSpec `json:"spec,omitempty"`
+
+	// Status reflects the observed state of the IP pool.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep nested status without omitzero (requiredfields).
 	Status IPPoolStatus `json:"status,omitempty"`
 }
 
+// IPPoolReference is an object that points to a IPPool.
 type IPPoolReference struct {
 	// Name of the IPPool resource being referenced.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1: KAL maxlength (wire shape unchanged).
 	Name string `json:"name"`
-	// API version of the referent.
+
+	// APIVersion is the API version of the referent.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1: preserve API wire type and markers; new fields should comply with KAL.
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 

@@ -1,5 +1,6 @@
-// Copyright (c) 2020 VMware, Inc. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
+// Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
+// and/or its subsidiaries.
 
 package v1alpha1
 
@@ -44,27 +45,37 @@ type AviLoadBalancerConfigSpec struct {
 	//   * ADDRESS is the Avi Controller IP address or the Avi Cluster IP when
 	//     two or more Avi Controllers are deployed in cluster mode.
 	//   * PORT defaults to 80 when SCHEME is http and 443 when SCHEME is https.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	Server string `json:"server"`
 
 	// CloudName is used by the Avi Kubernetes Operator (AKO) when querying
 	// properties via the Avi REST API, ex. /api/cloud/?name=CLOUD_NAME.
 	// Defaults to Default-Cloud.
 	// +kubebuilder:default:=Default-Cloud
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep optional string + kubebuilder:default (do not rewrite to *string / drop default).
 	CloudName string `json:"cloudName,omitempty"`
 
 	// AdvancedL4 is a flag that enables support for WCP in AKO.
 	// Defaults to true.
 	// +kubebuilder:default:=true
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: retain default (ignore kubebuilder:default marker).
 	AdvancedL4 *bool `json:"advancedL4,omitempty"`
 
 	// LogLevel specifies the log level used by AKO.
 	// +kubebuilder:default:=WARN
 	// +kubebuilder:validation:Enum=INFO;DEBUG;WARN;ERROR
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep optional string without pointer (optionalfields).
 	LogLevel AviLoadBalancerLogLevel `json:"logLevel,omitempty"`
 
 	// IPAMType is the type of IPAM used by the Avi Software Load Balancer.
 	// +kubebuilder:default:=controller
 	// +kubebuilder:validation:Enum=controller;supervisor
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep optional string without pointer (optionalfields).
 	IPAMType AviLoadBalancerIPAMType `json:"ipamType,omitempty"`
 
 	// CredentialSecretRef points to a Secret resource used to access and
@@ -88,6 +99,8 @@ type AviLoadBalancerConfigSpec struct {
 	//   certificateAuthorityData: []byte
 	//   username: []byte
 	//   password: []byte
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid omitempty (requiredfields wire shape).
 	CredentialSecretRef ClientSecretReference `json:"credentialSecretRef"`
 }
 
@@ -101,12 +114,24 @@ type AviLoadBalancerConfigStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
 
-// AviLoadBalancerConfig is the Schema for the AviLoadBalancerConfigs API
+// AviLoadBalancerConfig is the Schema for the AviLoadBalancerConfigs API.
+//
+//nolint:kubeapilinter // Stable v1alpha1 retention: ignore kubebuilder:subresource:status marker.
 type AviLoadBalancerConfig struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   AviLoadBalancerConfigSpec   `json:"spec,omitempty"`
+	// Spec describes the desired Avi load balancer configuration.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid Optional value-typed ref (optionalfields pointer churn).
+	Spec AviLoadBalancerConfigSpec `json:"spec,omitempty"`
+
+	// Status reflects the observed state of the Avi load balancer configuration.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid Optional value-typed ref (optionalfields pointer churn).
 	Status AviLoadBalancerConfigStatus `json:"status,omitempty"`
 }
 

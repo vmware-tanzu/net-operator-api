@@ -1,0 +1,85 @@
+# Copyright (c) 2026 Broadcom. All Rights Reserved.
+# Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
+# and/or its subsidiaries.
+#
+# Kube-API-Linter (KAL) — golangci-lint v2 config for the kubeapilinter custom linter only.
+# Run: make lint-kal  (requires hack/tools/bin/golangci-lint-kal, Go 1.24+)
+
+version: "2"
+run:
+  allow-parallel-runners: true
+
+linters:
+  default: none
+  enable:
+    - kubeapilinter
+  settings:
+    custom:
+      kubeapilinter:
+        type: module
+        description: KAL lints Kubernetes-like APIs based on API conventions and best practices.
+        settings:
+          linters:
+            enable:
+              - "commentstart"
+              - "conditions"
+              - "conflictingmarkers"
+              - "duplicatemarkers"
+              - "forbiddenmarkers"
+              - "integers"
+              - "jsontags"
+              - "maxlength"
+              - "nobools"
+              - "nodurations"
+              - "nofloats"
+              - "nomaps"
+              - "nonullable"
+              - "notimestamp"
+              - "optionalfields"
+              - "optionalorrequired"
+              - "requiredfields"
+              - "ssatags"
+              - "statusoptional"
+              - "statussubresource"
+              - "uniquemarkers"
+            disable:
+              - "*"
+          lintersConfig:
+            conflictingmarkers:
+              conflicts:
+                - name: "default_vs_required"
+                  sets:
+                    - ["default", "kubebuilder:default"]
+                    - ["required", "kubebuilder:validation:Required", "k8s:required"]
+                  description: "A field with a default value cannot be required"
+            forbiddenmarkers:
+              markers:
+                - identifier: "kubebuilder:default"
+                - identifier: "default"
+            conditions:
+              # Ignore field order: v1alpha1 status structs keep domain fields before Conditions.
+              isFirstField: Ignore
+              usePatchStrategy: Forbid
+              useProtobuf: Forbid
+            optionalfields:
+              pointers:
+                preference: WhenRequired
+                policy: SuggestFix
+              omitempty:
+                policy: SuggestFix
+  exclusions:
+    generated: strict
+    paths:
+      - zz_generated.*\.go$
+      - vendored_openapi\.go$
+      - .*_test\.go$
+      - (^|/)test/
+    rules:
+      # Run kubeapilinter only under api/ (paths relative to repo root)
+      - path-except: '(^|/)api/'
+        linters:
+          - kubeapilinter
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0

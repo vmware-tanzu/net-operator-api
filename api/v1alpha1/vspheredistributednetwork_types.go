@@ -118,7 +118,10 @@ type VSphereDistributedNetworkSpec struct {
 
 	// IPPools references list of IPPool objects. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
-	// 	to an empty list.
+	// to an empty list.
+	// When addressRanges is non-empty, the operator reconciles ipPools against those ranges:
+	// references that do not correspond to any address range are removed, new references are added
+	// where needed, and every retained reference (including ones that already matched a range) is reconciled.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	IPPools []IPPoolReference `json:"ipPools"`
@@ -161,6 +164,9 @@ type VSphereDistributedNetworkSpec struct {
 	IPv6Prefix *int32 `json:"ipv6Prefix,omitempty"`
 
 	// addressRanges is a list of IP ranges for static IP assignment.
+	// When non-empty, the operator reconciles ipPools against this list: IPPool references that do
+	// not map to any range here are removed, new references are added for ranges that require them,
+	// and all references that remain are reconciled (including those that already mapped to a range).
 	// +optional
 	// +kubebuilder:validation:MaxItems=1024
 	// +listType=atomic

@@ -39,10 +39,10 @@ const (
 
 // VSphereDistributedNetworkIPRange is the static IP range for a VSphereDistributedNetwork.
 type VSphereDistributedNetworkIPRange struct {
-	// address is the starting IPv4 address of the range.
-	// +kubebuilder:validation:Format=ipv4
-	// +kubebuilder:validation:MinLength=7
-	// +kubebuilder:validation:MaxLength=15
+	// address is the starting IPv4 or IPv6 address of the range.
+	// +kubebuilder:validation:XValidation:rule="self.matches('^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$') || self.matches('^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$')",message="Address must be a valid IPv4 or IPv6 address"
+	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:MaxLength=45
 	// +required
 	Address string `json:"address,omitempty"`
 
@@ -162,7 +162,7 @@ type VSphereDistributedNetworkSpec struct {
 
 	// addressRanges is a list of IP ranges for static IP assignment.
 	// +optional
-	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:MaxItems=1024
 	// +listType=atomic
 	AddressRanges []VSphereDistributedNetworkIPRange `json:"addressRanges,omitempty"`
 }

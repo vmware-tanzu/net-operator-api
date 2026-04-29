@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024 Broadcom. All Rights Reserved.
+// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
 // Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
 // and/or its subsidiaries.
 
@@ -38,14 +38,28 @@ const (
 // IPAddressAllocationCondition describes the state of an IPAddressAllocation at a specific point in time.
 type IPAddressAllocationCondition struct {
 	// Type is the type of the condition.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep condition type without omitempty (requiredfields wire shape).
 	Type IPAddressAllocationConditionType `json:"type"`
+
 	// Status reflects whether the condition is True, False, or Unknown.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep status without omitempty (requiredfields wire shape).
 	Status corev1.ConditionStatus `json:"status"`
+
 	// LastTransitionTime is the timestamp of the last change to the condition's status.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
 	// Reason provides a machine-readable explanation for the last status transition.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	Reason IPAddressAllocationConditionReason `json:"reason,omitempty"`
+
 	// Message provides a human-readable explanation for the last status transition.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	Message string `json:"message,omitempty"`
 }
 
@@ -53,17 +67,27 @@ type IPAddressAllocationCondition struct {
 type IPAddressAllocationSpec struct {
 	// PoolRef is the reference to the network's IP pool within the namespace.
 	// It currently only supports reference to a Network.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid omitempty (requiredfields wire shape).
 	PoolRef corev1.TypedLocalObjectReference `json:"poolRef"`
+
 	// RequestedIP is an optional field for a user to specify a particular IP they want to request.
 	// If omitted, the system will allocate a single IP address.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep value-typed optional string without pointer (optionalfields).
 	RequestedIP string `json:"requestedIP,omitempty"`
 }
 
 // IPAddressAllocationStatus contains the current status of an IPAddressAllocation, including the allocated IP address and conditions.
 type IPAddressAllocationStatus struct {
 	// IPAddress is the actually allocated IP address.
-	IPAddress string `json:"ipaddress,omitempty"`
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep value-typed optional string without pointer (optionalfields).
+	IPAddress string `json:"ipAddress,omitempty"`
+
 	// Conditions provide detailed information about the status of the allocation.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep custom IPAddressAllocationCondition slice (not metav1.Condition).
 	Conditions []IPAddressAllocationCondition `json:"conditions,omitempty"`
 }
 
@@ -71,11 +95,24 @@ type IPAddressAllocationStatus struct {
 // +kubebuilder:object:root=true
 
 // IPAddressAllocation represents a request for IP address allocation, including the desired state and current status.
+//
+//nolint:kubeapilinter // Stable v1alpha1 retention: ignore kubebuilder:subresource:status marker.
 type IPAddressAllocation struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              IPAddressAllocationSpec   `json:"spec,omitempty"`
-	Status            IPAddressAllocationStatus `json:"status,omitempty"`
+
+	// Spec describes the desired IP address allocation.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep nested spec without omitzero (requiredfields).
+	Spec IPAddressAllocationSpec `json:"spec,omitempty"`
+
+	// Status reflects the observed state of the IP address allocation.
+	//
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep nested status without omitzero (requiredfields).
+	Status IPAddressAllocationStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

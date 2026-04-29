@@ -18,11 +18,12 @@ HOST_OS=$(shell go env GOOS)
 HOST_ARCH=$(shell go env GOARCH)
 
 # Binaries.
-CONTROLLER_GEN  := $(BIN_DIR)/controller-gen
-GOLANGCI_LINT   := $(BIN_DIR)/golangci-lint
-CLIENT_GEN      := $(BIN_DIR)/client-gen
-INFORMER_GEN    := $(BIN_DIR)/informer-gen
-LISTER_GEN      := $(BIN_DIR)/lister-gen
+CONTROLLER_GEN      := $(BIN_DIR)/controller-gen
+GOLANGCI_LINT       := $(BIN_DIR)/golangci-lint
+GOLANGCI_LINT_KAL   := $(BIN_DIR)/golangci-lint-kal
+CLIENT_GEN          := $(BIN_DIR)/client-gen
+INFORMER_GEN        := $(BIN_DIR)/informer-gen
+LISTER_GEN          := $(BIN_DIR)/lister-gen
 
 ## --------------------------------------
 ##@ Help
@@ -57,8 +58,17 @@ $(LISTER_GEN): go.mod
 
 .PHONY: $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT) ## Install golangci-lint
+# golangci-lint v2+ uses module path .../golangci-lint/v2/cmd/golangci-lint (v1 path no longer valid with Go 1.24+).
+GOLANGCI_LINT_VERSION ?= v2.11.4
 $(GOLANGCI_LINT):
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+# golangci-lint-kal bundles kube-api-linter (Go 1.24+; see https://github.com/kubernetes-sigs/kube-api-linter).
+.PHONY: $(GOLANGCI_LINT_KAL)
+golangci-lint-kal: $(GOLANGCI_LINT_KAL) ## Build golangci-lint with kube-api-linter
+$(GOLANGCI_LINT_KAL): go.mod go.sum tools.go
+	@mkdir -p "$(@D)"
+	go build -trimpath -o $@ sigs.k8s.io/kube-api-linter/cmd/golangci-lint-kube-api-linter
 
 ## --------------------------------------
 ##@ Generate

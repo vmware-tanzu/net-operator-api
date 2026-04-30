@@ -37,9 +37,9 @@ type NetworkSettings struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// provider is the active network provider in this namespace. Workloads and network-aware
-	// components should use this to determine the network backing that is in effect, including
-	// when choosing defaulting behavior or which provider-specific APIs to use when not specified
-	// elsewhere.
+	// components should use this to determine which provider governs networking for the namespace,
+	// including when choosing defaulting behavior or which provider-specific APIs to use when not
+	// otherwise specified.
 	//
 	// +required
 	// +kubebuilder:validation:Enum=vsphere-distributed;nsx-tier1;vpc

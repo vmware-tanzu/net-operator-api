@@ -24,11 +24,9 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
 //
-// NetworkSettings exposes read-only, operator-relevant information about the effective network
-// configuration for a namespace.
-//
-// Consumers should treat it as observed, realized state, and expect it to track the network topology
-// backing the namespace.
+// NetworkSettings exposes information about the effective network configuration for a namespace.
+// This is observed, realized state, and its contents may be updated by further network configuration
+// mutations.
 type NetworkSettings struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -36,7 +34,7 @@ type NetworkSettings struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// provider is the active network provider in this namespace. Workloads and network-aware
+	// Provider is the active network provider in this namespace. Workloads and network-aware
 	// components should use this to determine which provider governs networking for the namespace,
 	// including when choosing defaulting behavior or which provider-specific APIs to use when not
 	// otherwise specified.

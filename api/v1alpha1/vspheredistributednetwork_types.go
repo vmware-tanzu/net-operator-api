@@ -128,23 +128,25 @@ type VSphereDistributedNetworkSpec struct {
 
 	// Gateway is the gateway to use for network interfaces. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
-	// 	to an empty string.
+	// to an empty string.
 	// Note: The regex pattern performs IPv4 validation but also allows an empty string for backward compatibility.
 	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
+	// +kubebuilder:default:=""
 	// +optional
 	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
-	Gateway string `json:"gateway,omitempty"`
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep stable wire shape: emit empty string rather than omitting key.
+	Gateway string `json:"gateway"`
 
 	// SubnetMask is the subnet mask to use for network interfaces. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
-	// 	to an empty string.
+	// to an empty string.
 	// Note: The regex pattern performs IPv4 validation but also allows an empty string for backward compatibility.
 	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
+	// +kubebuilder:default:=""
 	// +optional
 	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
-	SubnetMask string `json:"subnetMask,omitempty"`
+	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep stable wire shape: emit empty string rather than omitting key.
+	SubnetMask string `json:"subnetMask"`
 
 	// IPv6Gateway is the IPv6 gateway to use for network interfaces. This field should only
 	// be set when using IPv6AssignmentMode IPAssignmentModeStaticPool. For all other modes

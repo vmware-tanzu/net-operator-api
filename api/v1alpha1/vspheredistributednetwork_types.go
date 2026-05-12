@@ -41,6 +41,8 @@ const (
 type VSphereDistributedNetworkIPRange struct {
 	// address is the starting IPv4 address of the range.
 	// +kubebuilder:validation:Format=ipv4
+	// +kubebuilder:validation:MinLength=7
+	// +kubebuilder:validation:MaxLength=15
 	// +required
 	Address string `json:"address,omitempty"`
 
@@ -120,6 +122,8 @@ type VSphereDistributedNetworkSpec struct {
 	// When addressRanges is non-empty, the operator reconciles ipPools against those ranges:
 	// references that do not correspond to any address range are removed, new references are added
 	// where needed, and every retained reference (including ones that already matched a range) is reconciled.
+	// +kubebuilder:default:={}
+	// +optional
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	IPPools []IPPoolReference `json:"ipPools"`

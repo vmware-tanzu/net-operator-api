@@ -129,7 +129,7 @@ type AviLoadBalancerConfig struct {
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid Optional value-typed ref (optionalfields pointer churn).
 	Spec AviLoadBalancerConfigSpec `json:"spec,omitempty"`
 
-	// Status is unused because AviLoadBalancerConfigSpec is purely a configuration resource.
+	// Status reflects the observed state of the Avi load balancer configuration.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid Optional value-typed ref (optionalfields pointer churn).
 	Status AviLoadBalancerConfigStatus `json:"status,omitempty"`

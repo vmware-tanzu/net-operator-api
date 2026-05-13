@@ -338,8 +338,6 @@ type NetworkInterface struct {
 	Spec NetworkInterfaceSpec `json:"spec,omitempty"`
 
 	// Status defines the observed state of the NetworkInterface.
-	// Once NetworkInterfaceReady condition is True, it should contain configuration to use to place
-	// a VM/Pod/Container's nic on the specified network.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: keep spec/status value types (optionalfields pointer churn).
 	Status NetworkInterfaceStatus `json:"status,omitempty"`

@@ -38,13 +38,9 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	//
 	// +kubebuilder:validation:Enum=small;medium;large;xlarge
 	// +kubebuilder:default:=small
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default (forbiddenmarkers); CRD defaulting depends on it.
 	Size FoundationLoadBalancerSize `json:"size"`
 
 	// StoragePolicy is a vSphere Storage Policy ID which defines node storage placement.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	StoragePolicy string `json:"storagePolicy"`
 
 	// Version number desired by the operator.
@@ -52,21 +48,15 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// Defaults to the latest available.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep optional version string without pointer (optionalfields).
 	Version string `json:"version,omitempty"`
 
 	// Zones contains the names of zones eligible for placing nodes. Zones must be one of the
 	// AvailabilityZones defined and eligible for placement on the cluster.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid items MaxLength / MaxItems tightening on zone names.
 	Zones []string `json:"zones"`
 
 	// AvailabilityMode defines how the availability of the solution is deployed and configured.
 	// +kubebuilder:validation:Enum=active-passive;single-node
 	// +kubebuilder:default:=active-passive
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default (forbiddenmarkers).
 	AvailabilityMode FoundationLoadBalancerAvailabilityMode `json:"availabilityMode"`
 
 	// activePassiveSpec configures the load balancer in active-passive configuration.
@@ -95,8 +85,6 @@ type ActivePassiveAvailabilityMode struct {
 	//
 	// +kubebuilder:validation:Maximum=2
 	// +kubebuilder:default:=2
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default and uint32 (forbiddenmarkers, integers).
 	Replicas uint32 `json:"replicas"`
 }
 
@@ -108,8 +96,6 @@ type SingleNodeAvailabilityMode struct {
 	//
 	// +kubebuilder:validation:Maximum=1
 	// +kubebuilder:default:=1
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default and uint32 (forbiddenmarkers, integers).
 	Replicas uint32 `json:"replicas"`
 }
 
@@ -118,26 +104,19 @@ type SingleNodeAvailabilityMode struct {
 // FoundationLoadBalancerNodeStatus describes the per-node status of the load balancer.
 type FoundationLoadBalancerNodeStatus struct {
 	// NodeID is a node's unique identifier.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	NodeID string `json:"nodeID"`
 
 	// ManagementNetworkInterface defines the management NetworkInterface if it exists.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep value-typed optional ref (optionalfields pointer churn).
 	ManagementNetworkInterface NetworkInterfaceReference `json:"managementNetworkInterface,omitempty"`
 
 	// WorkloadNetworkInterfaces define the workload NetworkInterfaces if they exist.
 	//
 	// +optional
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation).
 	WorkloadNetworkInterfaces []NetworkInterfaceReference `json:"workloadNetworkInterfaces,omitempty"`
 
 	// VIPNetworkInterface is the interface bound to the Virtual IP Network.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep required value-typed ref (requiredfields pointer churn).
 	VIPNetworkInterface NetworkInterfaceReference `json:"vipNetworkInterface"`
 }
 
@@ -146,37 +125,27 @@ type FoundationLoadBalancerConfigStatus struct {
 	// Version describes the current version of the Foundation Load Balancer.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). keep optional string without pointer (optionalfields).
 	Version string `json:"version,omitempty"`
 
 	// Nodes list specific information about each deployed node.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation).
 	Nodes []FoundationLoadBalancerNodeStatus `json:"nodes,omitempty"`
 
 	// VirtualServerIPPoolsUtilization describes the current states of virtual server IP addresses utilization.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep embedded utilization struct without pointer (optionalfields).
 	VirtualServerIPPoolsUtilization VirtualIPPoolsUtilization `json:"virtualServerIPPoolsUtilization,omitempty"`
 
 	// TokenDigest represents a hash of the current token in JWT format used for authentication with
 	// the load balancer controller.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep token digest string without pointer (optionalfields). Avoid MaxLength (would tighten validation).
 	TokenDigest string `json:"tokenDigest,omitempty"`
 
 	// Conditions describes states of the load balancer at specific points in time.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation).
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -185,15 +154,11 @@ type VirtualIPPoolsUtilization struct {
 	// IPsAllocated represents the total number of virtual IP addresses currently allocated to services.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep int64 counters without pointers (optionalfields).
 	IPsAllocated int64 `json:"ipsAllocated,omitempty"`
 
 	// IPsAvailable represents the total number of virtual IP addresses eligible to be used for services.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep int64 counters without pointers (optionalfields).
 	IPsAvailable int64 `json:"ipsAvailable,omitempty"`
 }
 
@@ -201,8 +166,6 @@ type VirtualIPPoolsUtilization struct {
 // This specification is used to configure the resources for the load balancer on vCenter Server.
 type FoundationLoadBalancerConfigSpec struct {
 	// DeploymentSpec describes sizing and placement constraints of the load balancer.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep nested spec without omitzero (requiredfields).
 	DeploymentSpec FoundationLoadBalancerDeploymentSpec `json:"deploymentSpec"`
 
 	// managementNetwork points to the Network used to program node management network interfaces.
@@ -218,21 +181,15 @@ type FoundationLoadBalancerConfigSpec struct {
 	//
 	// +kubebuilder:validation:MaxItems:=1
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: ignore required listType marker (atomic, set, or map).
 	WorkloadNetworks []NetworkReference `json:"workloadNetworks,omitempty"`
 
 	// VirtualIPNetwork points to the Network used to program node VIP network interfaces.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid omitempty (requiredfields wire shape).
 	VirtualIPNetwork NetworkReference `json:"virtualIPNetwork"`
 
 	// NetworkSpec contains values for configuring networks on the load balancer.
 	// If unset, default settings will be applied.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep value-typed optional nested spec (optionalfields).
 	NetworkSpec FoundationLoadBalancerNetworkConfigSpec `json:"networkSpec,omitempty"`
 }
 
@@ -240,8 +197,6 @@ type FoundationLoadBalancerConfigSpec struct {
 type FoundationLoadBalancerNetworkConfigSpec struct {
 	// VirtualServerIPPools are the list of IPPools that are
 	// used for load balancer IP addresses.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation).
 	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools"`
 
 	// VirtualServerSubnets are the list of subnets specified in CIDR notation
@@ -252,8 +207,6 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	//
 	// +kubebuilder:default:={}
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default and slice shape (forbiddenmarkers, maxlength items).
 	VirtualServerSubnets []string `json:"virtualServerSubnets"`
 
 	// DNSServers is the list of servers used for DNS traffic.
@@ -262,16 +215,12 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	//
 	// +kubebuilder:default:={}
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default and slice shape (forbiddenmarkers, maxlength items).
 	DNSServers []string `json:"dnsServers"`
 
 	// DNSSearchDomains are the domains resolvable on the specified DNSServers.
 	//
 	// +kubebuilder:default:={}
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default and slice shape (forbiddenmarkers, maxlength items).
 	DNSSearchDomains []string `json:"dnsSearchDomains"`
 
 	// NTPServers are the servers used to sync time across nodes.
@@ -280,8 +229,6 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	//
 	// +kubebuilder:default:={}
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep kubebuilder:default and slice shape (forbiddenmarkers, maxlength items).
 	NTPServers []string `json:"ntpServers"`
 
 	// SyslogEndpoint configures the syslog server. It accepts a protocol, host and port.
@@ -293,16 +240,12 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	// Defaults to port 514 if using UDP and 6514 if using TLS.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	SyslogEndpoint string `json:"syslogEndpoint,omitempty"`
 
 	// SyslogCertificate is the certificate required to verify
 	// the TLS syslog endpoint in PEM format.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	SyslogCertificate string `json:"syslogCertificate,omitempty"`
 }
 
@@ -320,13 +263,9 @@ type FoundationLoadBalancerConfig struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the desired state of the Foundation Load Balancer.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep spec/status json tags without omitzero/pointer refactors (optionalfields).
 	Spec FoundationLoadBalancerConfigSpec `json:"spec,omitempty"`
 
 	// Status defines the observed state of the Foundation Load Balancer.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep spec/status json tags without omitzero/pointer refactors (optionalfields).
 	Status FoundationLoadBalancerConfigStatus `json:"status,omitempty"`
 }
 

@@ -120,7 +120,7 @@ lint-shell: ## Lint the project's shell scripts
 	docker run --rm -v "$$(pwd)":/mnt:ro koalaman/shellcheck:stable $$(ls hack/*.sh)
 
 # Kube-API-Linter runs via golangci-lint-kal (Go 1.24+ to build; see hack/tools/Makefile golangci-lint-kal).
-GOLANGCI_LINT_KAL_EXTRA_ARGS ?=
+GOLANGCI_LINT_KAL_EXTRA_ARGS ?= --new-from-merge-base=master # default to new code only
 .PHONY: lint-kal
 lint-kal: $(GOLANGCI_KAL_CONFIG) $(GOLANGCI_LINT_KAL) ## Run kube-api-linter on api/ types
 	$(GOLANGCI_LINT_KAL) run --config $(GOLANGCI_KAL_CONFIG) $(GOLANGCI_LINT_KAL_EXTRA_ARGS) ./api/...

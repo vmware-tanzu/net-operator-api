@@ -93,22 +93,22 @@ type VSphereDistributedNetworkSpec struct {
 	IPv6AssignmentMode IPAssignmentModeType `json:"ipv6AssignmentMode,omitempty"`
 
 	// IPPools references list of IPPool objects. This field should only be set when using
-	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
-	// 	to an empty list.
+	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone),
+	// this should be set to an empty list.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	IPPools []IPPoolReference `json:"ipPools"`
 
 	// Gateway is the gateway to use for network interfaces. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
-	// 	to an empty string.
+	// to an empty string.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	Gateway string `json:"gateway"`
 
 	// SubnetMask is the subnet mask to use for network interfaces. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
-	// 	to an empty string.
+	// to an empty string.
 	//
 	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	SubnetMask string `json:"subnetMask"`

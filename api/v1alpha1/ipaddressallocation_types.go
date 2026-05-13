@@ -82,8 +82,8 @@ type IPAddressAllocationSpec struct {
 type IPAddressAllocationStatus struct {
 	// IPAddress is the actually allocated IP address.
 	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep value-typed optional string without pointer (optionalfields).
-	IPAddress string `json:"ipAddress,omitempty"`
+	//nolint:kubeapilinter // Stable v1alpha1 retention: keep value-typed optional string without pointer (optionalfields). Keep original json field.
+	IPAddress string `json:"ipaddress,omitempty"`
 
 	// Conditions provide detailed information about the status of the allocation.
 	//

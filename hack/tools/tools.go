@@ -1,5 +1,6 @@
-// Copyright (c) 2020 VMware, Inc. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
+// Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
+// and/or its subsidiaries.
 
 // +build tools
 
@@ -7,6 +8,7 @@
 package tools
 
 import (
-	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 	_ "k8s.io/code-generator"
+	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
+	_ "sigs.k8s.io/kube-api-linter/cmd/golangci-lint-kube-api-linter"
 )

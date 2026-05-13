@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2025 Broadcom. All Rights Reserved.
+// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
 // Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
 // and/or its subsidiaries.
 
@@ -101,8 +101,6 @@ type VSphereDistributedNetworkSpec struct {
 	// where needed, and every retained reference (including ones that already matched a range) is reconciled.
 	// +kubebuilder:default:={}
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	IPPools []IPPoolReference `json:"ipPools"`
 
 	// Gateway setting to use for network interfaces. This field should only be set when using
@@ -112,8 +110,6 @@ type VSphereDistributedNetworkSpec struct {
 	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
 	// +kubebuilder:default:=""
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep stable wire shape: emit empty string rather than omitting key.
 	Gateway string `json:"gateway"`
 
 	// SubnetMask setting to use for network interfaces. This field should only be set when using
@@ -123,8 +119,6 @@ type VSphereDistributedNetworkSpec struct {
 	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
 	// +kubebuilder:default:=""
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep stable wire shape: emit empty string rather than omitting key.
 	SubnetMask string `json:"subnetMask"`
 
 	// IPv6Gateway setting to use for IPv6 addresses on network interfaces. This field should only

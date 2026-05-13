@@ -63,12 +63,12 @@ type VSphereDistributedNetworkCondition struct {
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" patchStrategy:"replace"`
 }
 
-// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.gateway) || self.gateway == ”) : true",message="Gateway must be empty when IpAssignmentMode is dhcp or none"
-// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.subnetMask) || self.subnetMask == ”) : true",message="SubnetMask must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.gateway) || self.gateway == '') : true",message="Gateway must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.subnetMask) || self.subnetMask == '') : true",message="SubnetMask must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.addressRanges) || size(self.addressRanges) == 0) : true",message="AddressRanges must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.ipPools) || size(self.ipPools) == 0) : true",message="IPPools must be empty when IpAssignmentMode is dhcp or none"
-// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != ”) : true",message="Gateway is required when IpAssignmentMode is staticpool"
-// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != ”) : true",message="SubnetMask is required when IpAssignmentMode is staticpool"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != '') : true",message="Gateway is required when IpAssignmentMode is staticpool"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != '') : true",message="SubnetMask is required when IpAssignmentMode is staticpool"
 // VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.
 type VSphereDistributedNetworkSpec struct {
 	// PortGroupID is an existing vSphere Distributed PortGroup identifier.

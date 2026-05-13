@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2026 Broadcom. All Rights Reserved.
+// Copyright (c) 2020-2025 Broadcom. All Rights Reserved.
 // Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
 // and/or its subsidiaries.
 
@@ -22,28 +22,16 @@ const (
 
 // IPConfig represents an IP configuration.
 type IPConfig struct {
-	// IP is the IP address for this configuration.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
+	// IP setting.
 	IP string `json:"ip"`
-
 	// IPFamily specifies the IP family (IPv4 vs IPv6) the IP belongs to.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	IPFamily corev1.IPFamily `json:"ipFamily"`
-
-	// Gateway is the default gateway for this configuration.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
+	// Gateway setting.
 	Gateway string `json:"gateway"`
-
-	// SubnetMask is the subnet mask for this configuration.
+	// SubnetMask setting.
 	// Deprecated: Use Prefix instead. If Prefix is set, SubnetMask is ignored.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	SubnetMask string `json:"subnetMask"`
-
-	// prefix is the prefix length for the IP address (e.g. 24 for a /24 IPv4 network,
+	// Prefix is the prefix length for the IP address (e.g. 24 for a /24 IPv4 network,
 	// 64 for a /64 IPv6 network). If set, this field takes precedence over SubnetMask
 	// for both IPv4 and IPv6 addresses.
 	// +optional
@@ -55,23 +43,12 @@ type IPConfig struct {
 // NetworkInterfaceProviderReference contains info to locate a network interface provider object.
 type NetworkInterfaceProviderReference struct {
 	// APIGroup is the group for the resource being referenced.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
 	APIGroup string `json:"apiGroup"`
-
-	// Kind is the type of resource being referenced.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
+	// Kind is the type of resource being referenced
 	Kind string `json:"kind"`
-
-	// Name is the name of resource being referenced.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation).
+	// Name is the name of resource being referenced
 	Name string `json:"name"`
-
-	// APIVersion is the API version of the referent.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep optional string without pointer (optionalfields).
+	// API version of the referent.
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 
@@ -91,15 +68,12 @@ const (
 	// NetworkInterfaceFailureReasonCannotAllocIP indicates NetworkInterface is in failed state because an
 	// IPConfig cannot be allocated.
 	NetworkInterfaceFailureReasonCannotAllocIP NetworkInterfaceConditionReason = "CannotAllocIP"
-
 	// NetworkInterfaceFailureReasonCannotAllocPort indicates NetworkInterface is in failed state because
 	// port cannot be allocated for network interface on the network.
 	NetworkInterfaceFailureReasonCannotAllocPort NetworkInterfaceConditionReason = "CannotAllocPort"
-
 	// NetworkInterfaceFailureReasonNetworkDeleted indicates NetworkInterface is in failed state because
 	// the underlying Network resource has been deleted.
 	NetworkInterfaceFailureReasonNetworkDeleted NetworkInterfaceConditionReason = "NetworkDeleted"
-
 	// NetworkInterfaceFailureReasonUnsupportedIPFamilyPolicy indicates NetworkInterface is in failed state
 	// because the requested IPFamilyPolicy is not supported by the Network's SupportedIPFamilies.
 	NetworkInterfaceFailureReasonUnsupportedIPFamilyPolicy NetworkInterfaceConditionReason = "UnsupportedIPFamilyPolicy"
@@ -108,29 +82,16 @@ const (
 // NetworkInterfaceCondition describes the state of a NetworkInterface at a certain point.
 type NetworkInterfaceCondition struct {
 	// Type is the type of network interface condition.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Keep condition type without omitempty (requiredfields wire shape).
 	Type NetworkInterfaceConditionType `json:"type"`
-
 	// Status is the status of the condition.
 	// Can be True, False, Unknown.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep status without omitempty (requiredfields wire shape).
 	Status corev1.ConditionStatus `json:"status"`
-
-	// lastTransitionTime is the timestamp corresponding to the last status
+	// LastTransitionTime is the timestamp corresponding to the last status
 	// change of this condition.
-	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-
-	// Reason is a machine understandable string that gives the reason for condition's last transition.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
+	// Machine understandable string that gives the reason for condition's last transition.
 	Reason NetworkInterfaceConditionReason `json:"reason,omitempty"`
-
-	// Message is a human-readable message indicating details about last transition.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
+	// Human-readable message indicating details about last transition.
 	Message string `json:"message,omitempty"`
 }
 
@@ -138,46 +99,25 @@ type NetworkInterfaceCondition struct {
 // Once NetworkInterfaceReady condition is True, it should contain configuration to use to place
 // a VM/Pod/Container's nic on the specified network.
 type NetworkInterfaceStatus struct {
-	// Conditions are an array of current observed network interface conditions.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep custom NetworkInterfaceCondition slice (not metav1.Condition).
+	// Conditions is an array of current observed network interface conditions.
 	Conditions []NetworkInterfaceCondition `json:"conditions,omitempty"`
-
-	// IPConfigs are an array of IP configurations for the network interface.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxItems (would tighten validation).
+	// IPConfigs is an array of IP configurations for the network interface.
 	IPConfigs []IPConfig `json:"ipConfigs,omitempty"`
-
-	// MacAddress is the MAC address for the network interface.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
+	// MacAddress setting for the network interface.
 	MacAddress string `json:"macAddress,omitempty"`
-
 	// ExternalID is a network provider specific identifier assigned to the network interface.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	ExternalID string `json:"externalID,omitempty"`
-
-	// NetworkID is a network provider specific identifier for the network backing the network
+	// NetworkID is an network provider specific identifier for the network backing the network
 	// interface.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	NetworkID string `json:"networkID,omitempty"`
-
 	// PortID is a network provider specific port identifier allocated for this network interface on
 	// the backing network. It is only valid on requested node and is set only if port allocation
 	// was requested.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	PortID string `json:"portID,omitempty"`
-
 	// ConnectionID is a network provider specific port connection identifier allocated for this
 	// network interface on the backing network. It is only valid on requested node and is set
 	// only if port allocation was requested.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	ConnectionID string `json:"connectionID,omitempty"`
-
 	// IPAssignmentMode indicates how IPv4 addresses are assigned to this interface.
 	// When unset:
 	// - If IP is assigned, it is assumed to be NetworkInterfaceIPAssignmentModeStaticPool.
@@ -186,10 +126,7 @@ type NetworkInterfaceStatus struct {
 	// When set to NetworkInterfaceIPAssignmentModeDHCP, indicates IP should be obtained via DHCP.
 	// When set to NetworkInterfaceIPAssignmentModeNone, indicates no IP assignment should be performed.
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	IPAssignmentMode NetworkInterfaceIPAssignmentMode `json:"ipAssignmentMode,omitempty"`
-
 	// IPv6AssignmentMode indicates how IPv6 addresses are assigned to this interface.
 	// This field is independent of IPAssignmentMode, allowing different assignment modes for IPv4
 	// and IPv6 (e.g., IPv4 uses DHCP while IPv6 uses static pool).
@@ -199,8 +136,6 @@ type NetworkInterfaceStatus struct {
 	// When set to NetworkInterfaceIPAssignmentModeDHCP, indicates IPv6 should be obtained via DHCPv6.
 	// When set to NetworkInterfaceIPAssignmentModeNone, indicates no IPv6 assignment should be performed.
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	IPv6AssignmentMode NetworkInterfaceIPAssignmentMode `json:"ipv6AssignmentMode,omitempty"`
 }
 
@@ -231,10 +166,8 @@ type NetworkInterfaceIPFamilyPolicy string
 const (
 	// NetworkInterfaceIPFamilyPolicyIPv4Only indicates only IPv4 addresses will be allocated.
 	NetworkInterfaceIPFamilyPolicyIPv4Only NetworkInterfaceIPFamilyPolicy = "IPv4Only"
-
 	// NetworkInterfaceIPFamilyPolicyIPv6Only indicates only IPv6 addresses will be allocated.
 	NetworkInterfaceIPFamilyPolicyIPv6Only NetworkInterfaceIPFamilyPolicy = "IPv6Only"
-
 	// NetworkInterfaceIPFamilyPolicyDualStack indicates both IPv4 and IPv6 addresses will be allocated.
 	NetworkInterfaceIPFamilyPolicyDualStack NetworkInterfaceIPFamilyPolicy = "DualStack"
 )
@@ -242,46 +175,31 @@ const (
 // NetworkInterfacePortAllocation describes the settings for network interface port allocation request.
 type NetworkInterfacePortAllocation struct {
 	// NodeName is the node where port must be allocated for this network interface.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	NodeName string `json:"nodeName"`
 }
 
 // NetworkInterfaceSpec defines the desired state of NetworkInterface.
 type NetworkInterfaceSpec struct {
 	// NetworkName refers to a NetworkObject in the same namespace.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep optional string without pointer (optionalfields).
 	NetworkName string `json:"networkName,omitempty"`
-
 	// Type is the type of NetworkInterface. Supported values are vmxnet3.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	Type NetworkInterfaceType `json:"type,omitempty"`
-
-	// providerRef is a reference to a provider specific network interface object
+	// ProviderRef is a reference to a provider specific network interface object
 	// that specifies the network interface configuration.
 	// If unset, default configuration is assumed.
-	// +optional
 	ProviderRef *NetworkInterfaceProviderReference `json:"providerRef,omitempty"`
-
-	// portAllocation is a request to allocate a port for this network interface on the backing network.
+	// PortAllocation is a request to allocate a port for this network interface on the backing network.
 	// This feature is currently supported only if backing network type is NetworkTypeVDS. In all other
 	// cases this field is ignored. Typically this is done implicitly by vCenter Server at the time
 	// of attaching a network interface to a network and should be left unset. This is used primarily when
 	// attachment of network interface to the network is done without vCenter Server's knowledge.
-	// +optional
 	PortAllocation *NetworkInterfacePortAllocation `json:"portAllocation,omitempty"`
-
 	// ExternalID describes a value that will be surfaced as status.externalID.
 	// If this field is omitted, then it is up to the underlying network
 	// provider to surface any information in status.externalID.
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid pointer (optionalfields).
 	ExternalID string `json:"externalID,omitempty"`
-
-	// ipFamilyPolicy specifies the IP family policy for this network interface.
+	// IPFamilyPolicy specifies the IP family policy for this network interface.
 	// Values: IPv4Only, IPv6Only, DualStack.
 	// When set to IPv4Only, only an IPv4 address will be allocated.
 	// When set to IPv6Only, only an IPv6 address will be allocated.
@@ -300,20 +218,12 @@ type NetworkInterfaceSpec struct {
 // NetworkInterfaceReference is an object that points to a NetworkInterface.
 type NetworkInterfaceReference struct {
 	// Kind is the type of resource being referenced.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	Kind string `json:"kind"`
-
 	// Name is the name of resource being referenced.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: avoid MaxLength (would tighten validation). Avoid omitempty (requiredfields wire shape).
 	Name string `json:"name"`
-
-	// APIVersion is the API version of the referent.
+	// APIVersion of the referent.
 	//
 	// +optional
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep optional string without pointer (optionalfields).
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 
@@ -323,23 +233,11 @@ type NetworkInterfaceReference struct {
 // NetworkInterface is the Schema for the networkinterfaces API.
 // A NetworkInterface represents a user's request for network configuration to use to place a
 // VM/Pod/Container's nic on a specified network.
-//
-//nolint:kubeapilinter // Stable v1alpha1 retention: ignore kubebuilder:subresource:status marker.
 type NetworkInterface struct {
-	metav1.TypeMeta `json:",inline"`
-
-	// metadata is standard Kubernetes object metadata.
-	// +optional
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec defines the desired state of the NetworkInterface.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep spec/status value types (optionalfields pointer churn).
-	Spec NetworkInterfaceSpec `json:"spec,omitempty"`
-
-	// Status defines the observed state of the NetworkInterface.
-	//
-	//nolint:kubeapilinter // Stable v1alpha1 retention: keep spec/status value types (optionalfields pointer churn).
+	Spec   NetworkInterfaceSpec   `json:"spec,omitempty"`
 	Status NetworkInterfaceStatus `json:"status,omitempty"`
 }
 

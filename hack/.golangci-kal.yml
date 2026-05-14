@@ -2,9 +2,8 @@
 # Broadcom Confidential. The term "Broadcom" refers to Broadcom Inc.
 # and/or its subsidiaries.
 #
-# Kube-API-Linter (KAL) — golangci-lint v2 config for the kubeapilinter custom linter only.
-# Run: make lint-kal  (requires hack/tools/bin/golangci-lint-kal, Go 1.24+)
-
+# Kube-API-Linter (KAL) config for net-operator-api types.
+# Requires golangci-lint with the kube-api-linter plugin.
 version: "2"
 run:
   allow-parallel-runners: true
@@ -17,7 +16,7 @@ linters:
     custom:
       kubeapilinter:
         type: module
-        description: KAL lints Kubernetes-like APIs based on API conventions and best practices.
+        description: KAL is the Kube-API-Linter and lints Kube like APIs based on API conventions and best practices.
         settings:
           linters:
             enable:
@@ -57,8 +56,7 @@ linters:
                 - identifier: "kubebuilder:default"
                 - identifier: "default"
             conditions:
-              # Ignore field order: v1alpha1 status structs keep domain fields before Conditions.
-              isFirstField: Ignore
+              isFirstField: Warn
               usePatchStrategy: Forbid
               useProtobuf: Forbid
             optionalfields:
@@ -75,8 +73,8 @@ linters:
       - .*_test\.go$
       - (^|/)test/
     rules:
-      # Run kubeapilinter only under api/ (paths relative to repo root)
-      - path-except: '(^|/)api/'
+      # KAL runs _only_ on API dirs (paths relative to component root)
+      - path-except: '(^|/)(api)/'
         linters:
           - kubeapilinter
 

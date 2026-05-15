@@ -300,6 +300,17 @@ type VSphereDistributedNetworkList struct {
 	Items           []VSphereDistributedNetwork `json:"items"`
 }
 
+// VSphereDistributedNetworkRef is a reference to a VSphereDistributedNetwork
+// resource by name.
+type VSphereDistributedNetworkRef struct {
+	// name is the name of the VSphereDistributedNetwork resource.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name,omitempty"`
+}
+
 func init() {
 	RegisterTypeWithScheme(&VSphereDistributedNetwork{}, &VSphereDistributedNetworkList{})
 }

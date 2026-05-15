@@ -8,18 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// NetworkSettingsProvider is the active network provider type for a namespace.
-type NetworkSettingsProvider string
-
-const (
-	// NetworkSettingsProviderVSphereDistributed is vSphere Distributed (VDS) network backing.
-	NetworkSettingsProviderVSphereDistributed NetworkSettingsProvider = "vsphere-distributed"
-	// NetworkSettingsProviderNSXTier1 is NSX Tier-1 network backing.
-	NetworkSettingsProviderNSXTier1 NetworkSettingsProvider = "nsx-tier1"
-	// NetworkSettingsProviderVPC is VPC (NSX) network backing.
-	NetworkSettingsProviderVPC NetworkSettingsProvider = "vpc"
-)
-
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
@@ -40,8 +28,7 @@ type NetworkSettings struct {
 	// otherwise specified.
 	//
 	// +required
-	// +kubebuilder:validation:Enum=vsphere-distributed;nsx-tier1;vpc
-	Provider NetworkSettingsProvider `json:"provider,omitempty"`
+	Provider NetworkProvider `json:"provider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

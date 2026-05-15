@@ -9,48 +9,52 @@ import (
 )
 
 const (
-	// NNCAnnotationKey is the annotation placed on a Namespace to associate it
-	// with a specific NamespaceNetworkConfiguration. The value is the name of
-	// the NamespaceNetworkConfiguration resource. Only actors with cluster-admin
-	// privileges may set this annotation.
-	NNCAnnotationKey = "netoperator.vmware.com/network-configuration"
+	// NamespaceNetworkAnnotationKey is the annotation placed on a Namespace to
+	// associate it with a specific NamespaceNetworkConfiguration. The value is
+	// the name of the NamespaceNetworkConfiguration resource. Only actors with
+	// cluster-admin privileges may set this annotation.
+	NamespaceNetworkAnnotationKey = "netoperator.vmware.com/network-configuration"
 
-	// NNCDefaultLabelKey is the label applied to a NamespaceNetworkConfiguration
-	// to designate it as the cluster-wide default configuration for new Namespaces
-	// whose creator does not specify a network configuration.
-	NNCDefaultLabelKey = "netoperator.vmware.com/default"
+	// NamespaceNetworkDefaultLabelKey is the label applied to a
+	// NamespaceNetworkConfiguration to designate it as the cluster-wide default
+	// configuration for new Namespaces whose creator does not specify a network
+	// configuration.
+	NamespaceNetworkDefaultLabelKey = "netoperator.vmware.com/default"
 
-	// NNCProtectionFinalizer is attached to a NamespaceNetworkConfiguration by
-	// Net Operator to prevent deletion while any Namespace holds the NNCAnnotationKey
-	// annotation pointing to this resource.
-	NNCProtectionFinalizer = "netoperator.vmware.com/namespace-network-configuration-protection"
+	// NamespaceNetworkProtectionFinalizer is attached to a
+	// NamespaceNetworkConfiguration by Net Operator to prevent deletion while
+	// any Namespace holds the NamespaceNetworkAnnotationKey annotation pointing
+	// to this resource.
+	NamespaceNetworkProtectionFinalizer = "netoperator.vmware.com/namespace-network-configuration-protection"
 
-	// NNCConditionReady is True when all networking resources owned by the
-	// NamespaceNetworkConfiguration have been created and every associated Namespace
-	// has been fully reconciled. When no Namespaces are associated, readiness
-	// reflects whether all cluster-scoped resources were created successfully.
-	NNCConditionReady = "Ready"
+	// NamespaceNetworkConditionReady is True when all networking resources owned
+	// by the NamespaceNetworkConfiguration have been created and every associated
+	// Namespace has been fully reconciled. When no Namespaces are associated,
+	// readiness reflects whether all cluster-scoped resources were created
+	// successfully.
+	NamespaceNetworkConditionReady = "Ready"
 )
 
-// NNCReconciliationStatus is the reconciliation state of a single Namespace
-// within a NamespaceNetworkConfiguration.
+// NamespaceNetworkReconciliationStatus is the reconciliation state of a single
+// Namespace within a NamespaceNetworkConfiguration.
 //
 // +kubebuilder:validation:Enum=Reconciling;Reconciled
-type NNCReconciliationStatus string
+type NamespaceNetworkReconciliationStatus string
 
 const (
-	// NNCReconciling indicates that the network configuration is being applied
-	// to the Namespace and is not yet complete.
-	NNCReconciling NNCReconciliationStatus = "Reconciling"
+	// NamespaceNetworkReconciling indicates that the network configuration is
+	// being applied to the Namespace and is not yet complete.
+	NamespaceNetworkReconciling NamespaceNetworkReconciliationStatus = "Reconciling"
 
-	// NNCReconciled indicates that the network configuration has been fully
-	// applied to the Namespace.
-	NNCReconciled NNCReconciliationStatus = "Reconciled"
+	// NamespaceNetworkReconciled indicates that the network configuration has
+	// been fully applied to the Namespace.
+	NamespaceNetworkReconciled NamespaceNetworkReconciliationStatus = "Reconciled"
 )
 
 // VSphereDistributedConfig specifies the vSphere Distributed (VDS) network
 // configuration for a namespace.
 //
+// +kubebuilder:validation:XValidation:rule="self.networks.all(n, self.networks.filter(m, m.name == n.name).size() == 1)",message="each entry in networks must have a unique name"
 // +kubebuilder:validation:XValidation:rule="self.networks.exists(n, n.name == self.defaultNetwork)",message="defaultNetwork must match the name of one of the entries in networks"
 // +kubebuilder:validation:XValidation:rule="oldSelf.defaultNetwork == '' || self.defaultNetwork == oldSelf.defaultNetwork",message="defaultNetwork is immutable once set"
 type VSphereDistributedConfig struct {
@@ -66,8 +70,7 @@ type VSphereDistributedConfig struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=32
-	// +listType=map
-	// +listMapKey=name
+	// +listType=atomic
 	Networks []VSphereDistributedNetworkRef `json:"networks,omitempty"`
 
 	// defaultNetwork is the name of one of the entries in networks. The
@@ -88,7 +91,7 @@ type VSphereDistributedConfig struct {
 	DefaultNetwork string `json:"defaultNetwork,omitempty"`
 }
 
-// NNCSpec defines the desired network configuration
+// NamespaceNetworkSpec defines the desired network configuration
 // for Namespaces associated with this NamespaceNetworkConfiguration.
 //
 // The type field selects the active network provider. For the vsphere-distributed
@@ -96,7 +99,7 @@ type VSphereDistributedConfig struct {
 //
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed'",message="only vsphere-distributed is currently supported; nsx-tier1 and vpc will be introduced in a future version"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' ? (has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0) : true",message="vsphereDistributedConfig.networks must contain at least one entry when type is vsphere-distributed"
-type NNCSpec struct {
+type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines
 	// which provider-specific config section must be populated.
 	//
@@ -110,20 +113,20 @@ type NNCSpec struct {
 	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
 }
 
-// NNCAppliedNamespace describes the reconciliation state of a single Namespace
-// associated with a NamespaceNetworkConfiguration.
-type NNCAppliedNamespace struct {
+// NamespaceNetworkAppliedNamespace describes the reconciliation state of a
+// single Namespace associated with a NamespaceNetworkConfiguration.
+type NamespaceNetworkAppliedNamespace struct {
 	// name is the name of the associated Namespace.
 	//
 	// +required
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name,omitempty"`
 
 	// status is the reconciliation state for this Namespace.
 	//
 	// +required
-	Status NNCReconciliationStatus `json:"status,omitempty"`
+	Status NamespaceNetworkReconciliationStatus `json:"status,omitempty"`
 
 	// message provides a human-readable explanation when the Namespace has not
 	// yet reached the Reconciled state.
@@ -134,9 +137,9 @@ type NNCAppliedNamespace struct {
 	Message string `json:"message,omitempty"`
 }
 
-// NNCStatus describes the observed state of the
+// NamespaceNetworkStatus describes the observed state of the
 // NamespaceNetworkConfiguration.
-type NNCStatus struct {
+type NamespaceNetworkStatus struct {
 	// conditions describe the current state of the NamespaceNetworkConfiguration.
 	// The Ready condition is True when all networking resources owned by this
 	// configuration have been created and all associated Namespaces have been
@@ -151,13 +154,12 @@ type NNCStatus struct {
 	// appliedToNamespaces lists each Namespace currently associated with this
 	// NamespaceNetworkConfiguration and its individual reconciliation state. Net
 	// Operator updates this list as Namespaces are attached or detached via the
-	// NNCAnnotationKey annotation.
+	// NamespaceNetworkAnnotationKey annotation.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=1024
-	// +listType=map
-	// +listMapKey=name
-	AppliedToNamespaces []NNCAppliedNamespace `json:"appliedToNamespaces,omitempty"`
+	// +listType=atomic
+	AppliedToNamespaces []NamespaceNetworkAppliedNamespace `json:"appliedToNamespaces,omitempty"`
 }
 
 // +genclient
@@ -194,12 +196,12 @@ type NamespaceNetworkConfiguration struct {
 	// spec defines the desired network configuration.
 	//
 	// +optional
-	Spec NNCSpec `json:"spec,omitempty,omitzero"`
+	Spec NamespaceNetworkSpec `json:"spec,omitempty,omitzero"`
 
 	// status describes the observed state of the NamespaceNetworkConfiguration.
 	//
 	// +optional
-	Status *NNCStatus `json:"status,omitempty"`
+	Status *NamespaceNetworkStatus `json:"status,omitempty"`
 }
 
 // GetConditions returns the status conditions for this NamespaceNetworkConfiguration.
@@ -213,7 +215,7 @@ func (n *NamespaceNetworkConfiguration) GetConditions() []metav1.Condition {
 // SetConditions sets the status conditions for this NamespaceNetworkConfiguration.
 func (n *NamespaceNetworkConfiguration) SetConditions(conditions []metav1.Condition) {
 	if n.Status == nil {
-		n.Status = &NNCStatus{}
+		n.Status = &NamespaceNetworkStatus{}
 	}
 	n.Status.Conditions = conditions
 }

@@ -85,14 +85,153 @@ type VSphereDistributedConfig struct {
 	DefaultNetwork string `json:"defaultNetwork,omitempty"`
 }
 
+// VPCSharedSubnetDefault expresses the default-network role of a shared Subnet
+// for a class of workload without using a bool. Omission or null means the Subnet
+// is not the default.
+//
+// +kubebuilder:validation:Enum=True;False
+type VPCSharedSubnetDefault string
+
+const (
+	// VPCSharedSubnetDefaultTrue marks the subnet as the default for its workload class.
+	VPCSharedSubnetDefaultTrue VPCSharedSubnetDefault = "True"
+	// VPCSharedSubnetDefaultFalse explicitly marks the subnet as not the default.
+	VPCSharedSubnetDefaultFalse VPCSharedSubnetDefault = "False"
+)
+
+// VPCSharedSubnet describes a pre-existing NSX Subnet that is shared into a
+// namespace.
+//
+// +kubebuilder:validation:XValidation:rule="oldSelf.name == '' || self.name == oldSelf.name",message="name is immutable once set"
+type VPCSharedSubnet struct {
+	// path is the NSX Manager API path of the Subnet resource to share into
+	// associated namespaces.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	Path string `json:"path,omitempty"`
+
+	// podDefault marks this subnet as the default network for Pod workloads in
+	// each associated namespace when set to True. At most one entry in
+	// sharedSubnets should set podDefault to True.
+	//
+	// +optional
+	PodDefault VPCSharedSubnetDefault `json:"podDefault,omitempty"`
+
+	// vmDefault marks this subnet as the default network for VM workloads in
+	// each associated namespace when set to True. At most one entry in
+	// sharedSubnets should set vmDefault to True.
+	//
+	// +optional
+	VMDefault VPCSharedSubnetDefault `json:"vmDefault,omitempty"`
+
+	// name is an optional human-readable label for this subnet entry. If
+	// unset, a label is derived from the path. Subnet entry names are RFC 1123
+	// DNS subdomain names: lowercase alphanumeric characters, hyphens, or
+	// dots; each dot-separated label must start and end with an alphanumeric
+	// character; at most 253 characters in total.
+	//
+	// This field is immutable once set.
+	//
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name,omitempty"`
+}
+
+// ManagedVPCConfig specifies the parameters used when a VPC is auto-provisioned
+// for each namespace associated with this NamespaceNetworkConfiguration.
+//
+// +kubebuilder:validation:XValidation:rule="self.project != ''",message="project is required when managedVPCConfig is set"
+// +kubebuilder:validation:XValidation:rule="self.connectivityProfile != ''",message="connectivityProfile is required when managedVPCConfig is set"
+type ManagedVPCConfig struct {
+	// project is the NSX Manager API path of the NSX Project under which the
+	// VPC will be auto-provisioned. Corresponds to nsxProject in
+	// VPCNetworkConfiguration.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	Project string `json:"project,omitempty"`
+
+	// connectivityProfile is the NSX Manager API path of the VPC Connectivity
+	// Profile used to configure transit gateway attachments for the
+	// auto-provisioned VPC. Corresponds to vpcConnectivityProfile in
+	// VPCNetworkConfiguration.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	ConnectivityProfile string `json:"connectivityProfile,omitempty"`
+
+	// privateCIDRs lists the IPv4 CIDR blocks from which private subnets are
+	// carved for this VPC. If unset, the NSX Project defaults apply.
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:MaxLength=43
+	// +listType=atomic
+	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
+}
+
+// VPCConfig specifies the NSX VPC network configuration for namespaces
+// associated with this NamespaceNetworkConfiguration.
+//
+// Exactly one of vpc or managedVPCConfig must be set. sharedSubnets and
+// defaultSubnetSize apply in either mode.
+//
+// +kubebuilder:validation:XValidation:rule="!(has(self.vpc) && has(self.managedVPCConfig))",message="vpc and managedVPCConfig are mutually exclusive; set exactly one"
+// +kubebuilder:validation:XValidation:rule="has(self.vpc) || has(self.managedVPCConfig)",message="one of vpc or managedVPCConfig must be set"
+type VPCConfig struct {
+	// vpc is the NSX Manager API path of a pre-existing VPC to associate with
+	// namespaces governed by this NamespaceNetworkConfiguration. Mutually
+	// exclusive with managedVPCConfig.
+	//
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	VPC string `json:"vpc,omitempty"`
+
+	// managedVPCConfig specifies the parameters for a VPC that is
+	// auto-provisioned for each associated Namespace.
+	//
+	// The auto-provisioned VPC is lifecycle-managed by the NamespaceNetworkConfiguration.
+	//
+	// Mutually exclusive with vpc.
+	//
+	// +optional
+	ManagedVPCConfig ManagedVPCConfig `json:"managedVPCConfig,omitempty,omitzero"`
+
+	// sharedSubnets lists pre-existing NSX Subnets to share into each
+	// associated namespace. Entries may carry podDefault or vmDefault markers
+	// to designate workload-class defaults.
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=map
+	// +listMapKey=path
+	SharedSubnets []VPCSharedSubnet `json:"sharedSubnets,omitempty"`
+
+	// defaultSubnetSize is the number of IP addresses in subnets
+	// auto-created within the VPC. If unset, the system default of 32
+	// addresses (/27) applies.
+	//
+	// +optional
+	// +kubebuilder:validation:Maximum=65536
+	DefaultSubnetSize *int64 `json:"defaultSubnetSize,omitempty"`
+}
+
 // NamespaceNetworkSpec defines the desired network configuration
 // for Namespaces associated with this NamespaceNetworkConfiguration.
 //
-// The type field selects the active network provider. For the vsphere-distributed
-// provider, vsphereDistributedConfig must be populated.
+// The type field selects the active network provider. The corresponding
+// provider-specific config section must be populated to match.
 //
-// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed'",message="only vsphere-distributed is currently supported; nsx-tier1 and vpc will be introduced in a future version"
+// +kubebuilder:validation:XValidation:rule="self.type in ['vsphere-distributed', 'vpc']",message="only vsphere-distributed and vpc are currently supported; nsx-tier1 will be introduced in a future version"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' ? (has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0) : true",message="vsphereDistributedConfig.networks must contain at least one entry when type is vsphere-distributed"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? has(self.vpcConfig) : true",message="vpcConfig must be set when type is vpc"
 type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines
 	// which provider-specific config section must be populated.
@@ -105,6 +244,12 @@ type NamespaceNetworkSpec struct {
 	//
 	// +optional
 	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
+
+	// vpcConfig contains the NSX VPC network configuration. Required when type
+	// is vpc.
+	//
+	// +optional
+	VPCConfig *VPCConfig `json:"vpcConfig,omitempty"`
 }
 
 // NamespaceNetworkAssociation describes the reconciliation state of a

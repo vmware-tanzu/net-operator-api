@@ -9,23 +9,16 @@ import (
 )
 
 const (
-	// NamespaceNetworkAnnotationKey is the annotation placed on a Namespace to
-	// associate it with a specific NamespaceNetworkConfiguration. The value is
-	// the name of the NamespaceNetworkConfiguration resource. Only actors with
-	// cluster-admin privileges may set this annotation.
-	NamespaceNetworkAnnotationKey = "netoperator.vmware.com/network-configuration"
-
-	// NamespaceNetworkDefaultLabelKey is the label applied to a
-	// NamespaceNetworkConfiguration to designate it as the cluster-wide default
-	// configuration for new Namespaces whose creator does not specify a network
-	// configuration.
-	NamespaceNetworkDefaultLabelKey = "netoperator.vmware.com/default"
+	// NamespaceNetworkLabelKey is the label placed on a Namespace to associate
+	// it with a specific NamespaceNetworkConfiguration. The value is the name
+	// of the NamespaceNetworkConfiguration resource.
+	NamespaceNetworkLabelKey = "netoperator.vmware.com/network-configuration"
 
 	// NamespaceNetworkProtectionFinalizer is attached to a
 	// NamespaceNetworkConfiguration by Net Operator to prevent deletion while
-	// any Namespace holds the NamespaceNetworkAnnotationKey annotation pointing
-	// to this resource.
-	NamespaceNetworkProtectionFinalizer = "netoperator.vmware.com/namespace-network-configuration-protection"
+	// any Namespace holds the NamespaceNetworkLabelKey label pointing to this
+	// resource.
+	NamespaceNetworkProtectionFinalizer = "netoperator.vmware.com/nnc-protection"
 
 	// NamespaceNetworkConditionReady is True when all networking resources owned
 	// by the NamespaceNetworkConfiguration have been created and every associated
@@ -54,7 +47,6 @@ const (
 // VSphereDistributedConfig specifies the vSphere Distributed (VDS) network
 // configuration for a namespace.
 //
-// +kubebuilder:validation:XValidation:rule="self.networks.all(n, self.networks.filter(m, m.name == n.name).size() == 1)",message="each entry in networks must have a unique name"
 // +kubebuilder:validation:XValidation:rule="self.networks.exists(n, n.name == self.defaultNetwork)",message="defaultNetwork must match the name of one of the entries in networks"
 // +kubebuilder:validation:XValidation:rule="oldSelf.defaultNetwork == '' || self.defaultNetwork == oldSelf.defaultNetwork",message="defaultNetwork is immutable once set"
 type VSphereDistributedConfig struct {
@@ -70,7 +62,8 @@ type VSphereDistributedConfig struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=32
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=name
 	Networks []VSphereDistributedNetworkRef `json:"networks,omitempty"`
 
 	// defaultNetwork is the name of one of the entries in networks. The
@@ -88,6 +81,7 @@ type VSphereDistributedConfig struct {
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	DefaultNetwork string `json:"defaultNetwork,omitempty"`
 }
 
@@ -121,6 +115,7 @@ type NamespaceNetworkAppliedNamespace struct {
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	Name string `json:"name,omitempty"`
 
 	// status is the reconciliation state for this Namespace.
@@ -154,11 +149,12 @@ type NamespaceNetworkStatus struct {
 	// appliedToNamespaces lists each Namespace currently associated with this
 	// NamespaceNetworkConfiguration and its individual reconciliation state. Net
 	// Operator updates this list as Namespaces are attached or detached via the
-	// NamespaceNetworkAnnotationKey annotation.
+	// NamespaceNetworkLabelKey label.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=1024
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=name
 	AppliedToNamespaces []NamespaceNetworkAppliedNamespace `json:"appliedToNamespaces,omitempty"`
 }
 
@@ -172,19 +168,21 @@ type NamespaceNetworkStatus struct {
 // network configuration to be applied to one or more Namespaces.
 //
 // A Namespace is associated with a NamespaceNetworkConfiguration by setting the
-// netoperator.vmware.com/network-configuration annotation on the Namespace to
-// the name of this resource.
+// netoperator.vmware.com/network-configuration label on the Namespace to the
+// name of this resource.
 //
 // The spec.type field selects the network provider; the corresponding
 // provider-specific config section must be populated to match. Net Operator
-// watches this resource and the annotation on Namespaces, reconciles networking
+// watches this resource and the label on Namespaces, reconciles networking
 // resources into associated Namespaces, and creates a NetworkSettings CR in each
 // Namespace to expose the active provider to network-aware operators.
 //
 // Deletion is blocked by the
 // netoperator.vmware.com/namespace-network-configuration-protection finalizer
 // while any Namespace holds the netoperator.vmware.com/network-configuration
-// annotation pointing to this resource.
+// label pointing to this resource.
+//
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="name must be 63 characters or fewer to be usable as a Kubernetes label value"
 type NamespaceNetworkConfiguration struct {
 	metav1.TypeMeta `json:",inline"`
 

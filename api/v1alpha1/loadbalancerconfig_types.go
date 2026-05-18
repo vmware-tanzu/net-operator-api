@@ -13,6 +13,9 @@ import (
 // which contains credential specifications for a load balancer.
 type ClientSecretReference struct {
 	// Name is the name of resource being referenced.
+	// It must conform to DNS-1123 subdomain format.
+	//
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([a-z0-9.\-]{0,251}[a-z0-9])?$`
 	Name string `json:"name"`
 	// Namespace of the resource being referenced. If empty, cluster scoped resource is assumed.
 	// +kubebuilder:default:=default
@@ -73,15 +76,33 @@ const (
 
 	// LoadBalancerConfigTypeFoundation is the FoundationLoadBalancerConfigType for VCF Foundation Load Balancer.
 	LoadBalancerConfigTypeFoundation LoadBalancerConfigType = "foundation"
+
+	// LoadBalancerConfigTypeNSX is the LoadBalancerConfigType for VMware NSX.
+	// NSX-type configs have no providerRef.
+	LoadBalancerConfigTypeNSX LoadBalancerConfigType = "nsx"
+
+	// LoadBalancerConfigTypeNSXRegisteredAvi is the LoadBalancerConfigType for
+	// an AVI controller registered and managed by NSX.
+	// NSX-registered-AVI configs have no providerRef and are mutable to/from nsx.
+	LoadBalancerConfigTypeNSXRegisteredAvi LoadBalancerConfigType = "nsx-registered-avi"
 )
 
-// LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig
+// LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig.
+//
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerRef) || self.providerRef == oldSelf.providerRef",message="spec.providerRef is immutable once set"
+// +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind == 'HAProxyLoadBalancerConfig') || self.type in ['nsx', 'nsx-registered-avi']",message="spec.providerRef.kind must match spec.type"
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.
-	// +kubebuilder:validation:Enum=haproxy;avi;foundation
+	//
+	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsx;nsx-registered-avi
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf in ['nsx', 'nsx-registered-avi'] && self in ['nsx', 'nsx-registered-avi'])",message="spec.type is immutable except for transitions between nsx and nsx-registered-avi"
 	Type LoadBalancerConfigType `json:"type"`
-	// ProviderRef is reference to a load balancer provider object that provides the details for this type of load balancer
-	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef"`
+
+	// providerRef is a reference to a load balancer provider object that provides the details for this type of load balancer.
+	// Not set for nsx and nsx-registered-avi types.
+	//
+	// +optional
+	ProviderRef *LoadBalancerConfigProviderReference `json:"providerRef,omitempty"`
 }
 
 // LoadBalancerConfigStatus defines the observed state of LoadBalancerConfig

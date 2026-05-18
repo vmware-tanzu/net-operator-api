@@ -24,6 +24,12 @@ GOLANGCI_LINT_KAL   := $(BIN_DIR)/golangci-lint-kal
 CLIENT_GEN          := $(BIN_DIR)/client-gen
 INFORMER_GEN        := $(BIN_DIR)/informer-gen
 LISTER_GEN          := $(BIN_DIR)/lister-gen
+SETUP_ENVTEST       := $(BIN_DIR)/setup-envtest
+KUBE_APISERVER      := $(BIN_DIR)/kube-apiserver
+ETCD                := $(BIN_DIR)/etcd
+
+# Lazily evaluated: calls setup-envtest to locate the downloaded assets directory.
+ENVTEST_DOWNLOAD_DIR = $(shell $(SETUP_ENVTEST) use -p path $(KUBEBUILDER_K8S_VERSION))
 
 ## --------------------------------------
 ##@ Help
@@ -62,6 +68,20 @@ golangci-lint: $(GOLANGCI_LINT) ## Install golangci-lint
 GOLANGCI_LINT_VERSION ?= v2.11.4
 $(GOLANGCI_LINT):
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: $(SETUP_ENVTEST)
+setup-envtest: $(SETUP_ENVTEST) ## Install setup-envtest (used to locate or download kube-apiserver + etcd for envtest)
+$(SETUP_ENVTEST): go.mod
+	go build -tags=tools -o $@ sigs.k8s.io/controller-runtime/tools/setup-envtest
+
+.PHONY: k8s-envtest
+k8s-envtest: $(SETUP_ENVTEST) ## Download kube-apiserver + etcd via setup-envtest (run once on fresh clone)
+	$(SETUP_ENVTEST) use --os $(HOST_OS) --arch $(HOST_ARCH) $(KUBEBUILDER_K8S_VERSION)
+
+etcd: $(ETCD) ## Install etcd
+kube-apiserver: $(KUBE_APISERVER) ## Install kube-apiserver
+$(ETCD) $(KUBE_APISERVER): k8s-envtest
+	@cp -f "$(ENVTEST_DOWNLOAD_DIR)/$(@F)" $(BIN_DIR)
 
 # golangci-lint-kal bundles kube-api-linter (Go 1.24+; see https://github.com/kubernetes-sigs/kube-api-linter).
 .PHONY: $(GOLANGCI_LINT_KAL)

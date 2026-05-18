@@ -24,6 +24,7 @@ LISTER_GEN          := $(TOOLS_BIN_DIR)/lister-gen
 GOLANGCI_LINT       := $(TOOLS_BIN_DIR)/golangci-lint
 GOLANGCI_LINT_KAL   := $(abspath $(TOOLS_BIN_DIR)/golangci-lint-kal)
 GOLANGCI_KAL_CONFIG := $(abspath hack/.golangci-kal.yml)
+SETUP_ENVTEST       := $(TOOLS_BIN_DIR)/setup-envtest
 
 CLIENT_GEN_SCRIPT  := hack/client-gen.sh
 
@@ -31,8 +32,19 @@ CLIENT_GEN_SCRIPT  := hack/client-gen.sh
 MANIFEST_ROOT ?= config
 CRD_ROOT      ?= $(MANIFEST_ROOT)/crd/bases
 
+# Kubernetes version for envtest assets (kube-apiserver + etcd).
+# CEL / x-kubernetes-validations require v1.25+; v1.30 is recommended.
+ENVTEST_K8S_VERSION ?= 1.30.0
+
+# envtest binary paths (populated by the k8s-envtest target in hack/tools/Makefile).
+KUBE_APISERVER := $(TOOLS_BIN_DIR)/kube-apiserver
+ETCD           := $(TOOLS_BIN_DIR)/etcd
+
+# Point envtest at the local hack/tools/bin directory, mirroring net-operator.
+export KUBEBUILDER_ASSETS := $(abspath $(TOOLS_BIN_DIR))
+
 .PHONY: all
-all: lint tools generate ## Runs tests and generates all components
+all: lint tools generate test  ## Runs linting, code generation, and tests.
 
 ## --------------------------------------
 ##@ Help
@@ -45,11 +57,15 @@ help: ## Display this help
 ##@ Tooling
 ## --------------------------------------
 
-TOOLING_BINARIES := $(CONTROLLER_GEN) $(CLIENT_GEN) $(INFORMER_GEN) $(LISTER_GEN) $(GOLANGCI_LINT)
+TOOLING_BINARIES := $(CONTROLLER_GEN) $(CLIENT_GEN) $(INFORMER_GEN) $(LISTER_GEN) $(GOLANGCI_LINT) $(SETUP_ENVTEST)
 tools: $(TOOLING_BINARIES) ## Build tooling binaries
 .PHONY: $(TOOLING_BINARIES)
 $(TOOLING_BINARIES):
 	make -C $(TOOLS_DIR) $(@F)
+
+# File-level prereqs for envtest binaries — trigger k8s-envtest download on first use.
+$(KUBE_APISERVER) $(ETCD):
+	$(MAKE) -C $(TOOLS_DIR) $(@F) KUBEBUILDER_K8S_VERSION=$(ENVTEST_K8S_VERSION)
 
 ## --------------------------------------
 ##@ Generate
@@ -89,6 +105,17 @@ generate-manifests: $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC etc.
 .PHONY: generate-client
 generate-client: tools ## Generate api client
 	$(CLIENT_GEN_SCRIPT)
+
+## --------------------------------------
+##@ Testing
+## --------------------------------------
+
+.PHONY: test
+test: test-cel ## Run all tests.
+
+.PHONY: test-cel
+test-cel: generate-manifests $(KUBE_APISERVER) $(ETCD) ## Run CEL envtest integration tests (downloads kube-apiserver+etcd v1.30 on first run)
+	cd test/cel && go test ./... -count=1 -timeout 120s
 
 ## --------------------------------------
 ##@ Linting

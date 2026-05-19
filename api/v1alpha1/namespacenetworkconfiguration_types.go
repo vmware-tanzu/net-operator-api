@@ -141,10 +141,18 @@ type NamespaceNetworkStatus struct {
 	// fully reconciled.
 	//
 	// +optional
-	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:MaxItems=32
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// observedGeneration is the metadata.generation that this status was
+	// computed from. Clients must compare this against metadata.generation
+	// before relying on any field in status; if they differ, the status
+	// reflects a prior spec version and should be treated as stale.
+	//
+	// +optional
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 	// appliedToNamespaces lists each Namespace currently associated with this
 	// NamespaceNetworkConfiguration and its individual reconciliation state. Net
@@ -193,7 +201,7 @@ type NamespaceNetworkConfiguration struct {
 
 	// spec defines the desired network configuration.
 	//
-	// +optional
+	// +required
 	Spec NamespaceNetworkSpec `json:"spec,omitempty,omitzero"`
 
 	// status describes the observed state of the NamespaceNetworkConfiguration.

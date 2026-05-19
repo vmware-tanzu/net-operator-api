@@ -67,20 +67,19 @@ type VSphereDistributedNetworkCondition struct {
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.subnetMask) || self.subnetMask == '') : true",message="SubnetMask must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.addressRanges) || size(self.addressRanges) == 0) : true",message="AddressRanges must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.ipPools) || size(self.ipPools) == 0) : true",message="IPPools must be empty when IpAssignmentMode is dhcp or none"
-// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != '') : true",message="Gateway is required when IpAssignmentMode is staticpool"
-// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != '') : true",message="SubnetMask is required when IpAssignmentMode is staticpool"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != '') : true",message="Gateway is required when IpAssignmentMode is staticpool or unset"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != '') : true",message="SubnetMask is required when IpAssignmentMode is staticpool or unset"
 // VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.
 type VSphereDistributedNetworkSpec struct {
 	// PortGroupID is an existing vSphere Distributed PortGroup identifier.
 	PortGroupID string `json:"portGroupID"`
 
-	// IPAssignmentMode to use for IPv4 addresses on network interfaces. If unset, defaults to IPAssignmentModeStaticPool.
+	// ipAssignmentMode to use for IPv4 addresses on network interfaces.
 	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPv4 IPPools, Gateway and SubnetMask
 	// fields should be empty/unset. When using IPAssignmentModeNone, no IPv4 IP will be assigned
 	// and no DHCP client will be configured.
 	// Note: For IPv6 address assignment, see IPv6AssignmentMode.
 	// +kubebuilder:validation:Enum=dhcp;staticpool;none
-	// +kubebuilder:default:=staticpool
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ipAssignmentMode is immutable"
 	// +optional
 	IPAssignmentMode IPAssignmentModeType `json:"ipAssignmentMode,omitempty"`

@@ -9,6 +9,8 @@ import (
 )
 
 // NetworkSettingsProvider is the active network provider type for a namespace.
+//
+// +kubebuilder:validation:Enum=vsphere-distributed;nsx-tier1;vpc
 type NetworkSettingsProvider string
 
 const (
@@ -39,8 +41,10 @@ type NetworkSettings struct {
 	// including when choosing defaulting behavior or which provider-specific APIs to use when not
 	// otherwise specified.
 	//
+	// Once set, the provider is immutable.
+	//
 	// +required
-	// +kubebuilder:validation:Enum=vsphere-distributed;nsx-tier1;vpc
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="provider is immutable once set"
 	Provider NetworkSettingsProvider `json:"provider,omitempty"`
 }
 

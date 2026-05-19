@@ -48,7 +48,7 @@ const (
 // configuration for a namespace.
 //
 // +kubebuilder:validation:XValidation:rule="self.networks.exists(n, n.name == self.defaultNetwork)",message="defaultNetwork must match the name of one of the entries in networks"
-// +kubebuilder:validation:XValidation:rule="oldSelf.defaultNetwork == ” || self.defaultNetwork == oldSelf.defaultNetwork",message="defaultNetwork is immutable once set"
+// +kubebuilder:validation:XValidation:rule="oldSelf.defaultNetwork == '' || self.defaultNetwork == oldSelf.defaultNetwork",message="defaultNetwork is immutable once set"
 type VSphereDistributedConfig struct {
 	// networks lists the VSphereDistributedNetwork resources to present inside
 	// each associated Namespace. Each entry results in a corresponding Network

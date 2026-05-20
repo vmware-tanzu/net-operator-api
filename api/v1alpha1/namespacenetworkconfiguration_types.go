@@ -107,9 +107,9 @@ type NamespaceNetworkSpec struct {
 	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
 }
 
-// NamespaceNetworkAppliedNamespace describes the reconciliation state of a
+// NamespaceNetworkAssociation describes the reconciliation state of a
 // single Namespace associated with a NamespaceNetworkConfiguration.
-type NamespaceNetworkAppliedNamespace struct {
+type NamespaceNetworkAssociation struct {
 	// name is the name of the associated Namespace.
 	//
 	// +required
@@ -128,7 +128,7 @@ type NamespaceNetworkAppliedNamespace struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=2048
 	Message string `json:"message,omitempty"`
 }
 
@@ -154,16 +154,16 @@ type NamespaceNetworkStatus struct {
 	// +optional
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
-	// appliedToNamespaces lists each Namespace currently associated with this
+	// associatedNamespaces lists each Namespace currently associated with this
 	// NamespaceNetworkConfiguration and its individual reconciliation state. Net
 	// Operator updates this list as Namespaces are attached or detached via the
 	// NamespaceNetworkLabelKey label.
 	//
 	// +optional
-	// +kubebuilder:validation:MaxItems=1024
+	// +kubebuilder:validation:MaxItems=2048
 	// +listType=map
 	// +listMapKey=name
-	AppliedToNamespaces []NamespaceNetworkAppliedNamespace `json:"appliedToNamespaces,omitempty"`
+	AssociatedNamespaces []NamespaceNetworkAssociation `json:"associatedNamespaces,omitempty"`
 }
 
 // +genclient

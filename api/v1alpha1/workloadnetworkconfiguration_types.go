@@ -45,7 +45,6 @@ type WorkloadNetworkConfigurationSpec struct {
 	// +required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=3
-	// +kubebuilder:validation:UniqueItems=true
 	// +listType=set
 	Providers []NetworkProvider `json:"providers,omitempty"`
 

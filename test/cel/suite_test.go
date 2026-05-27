@@ -16,8 +16,8 @@ import (
 	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -86,8 +86,6 @@ func TestMain(m *testing.M) {
 func isRejected(err error) bool {
 	return apierrors.IsInvalid(err) || apierrors.IsBadRequest(err)
 }
-
-func ptr[T any](v T) *T { return &v }
 
 // ensureNamespace idempotently creates a namespace for namespace-scoped tests.
 func ensureNamespace(t *testing.T, name string) {

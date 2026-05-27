@@ -20,7 +20,7 @@ func lbcWithType(name string, lbType netv1alpha1.LoadBalancerConfigType, provide
 		},
 	}
 	if providerKind != "" {
-		obj.Spec.ProviderRef = &netv1alpha1.LoadBalancerConfigProviderReference{
+		obj.Spec.ProviderRef = netv1alpha1.LoadBalancerConfigProviderReference{
 			APIGroup:   "netoperator.vmware.com",
 			Kind:       providerKind,
 			Name:       "my-provider",
@@ -73,7 +73,7 @@ func TestLBC_TypeImmutable_FoundationToAvi_Rejected(t *testing.T) {
 		t.Fatalf("get: %v", err)
 	}
 	latest.Spec.Type = netv1alpha1.LoadBalancerConfigTypeAvi
-	latest.Spec.ProviderRef = &netv1alpha1.LoadBalancerConfigProviderReference{
+	latest.Spec.ProviderRef = netv1alpha1.LoadBalancerConfigProviderReference{
 		APIGroup: "netoperator.vmware.com",
 		Kind:     "AviLoadBalancerConfig",
 		Name:     "my-provider",
@@ -129,7 +129,7 @@ func TestLBC_NSXToFoundation_Rejected(t *testing.T) {
 		t.Fatalf("get: %v", err)
 	}
 	latest.Spec.Type = netv1alpha1.LoadBalancerConfigTypeFoundation
-	latest.Spec.ProviderRef = &netv1alpha1.LoadBalancerConfigProviderReference{
+	latest.Spec.ProviderRef = netv1alpha1.LoadBalancerConfigProviderReference{
 		APIGroup: "netoperator.vmware.com",
 		Kind:     "FoundationLoadBalancerConfig",
 		Name:     "my-provider",
@@ -151,12 +151,67 @@ func TestLBC_ProviderRefImmutableOnceSet_Rejected(t *testing.T) {
 		t.Fatalf("get: %v", err)
 	}
 	// Attempt to change the providerRef name after it has been set.
-	latest.Spec.ProviderRef = &netv1alpha1.LoadBalancerConfigProviderReference{
+	latest.Spec.ProviderRef = netv1alpha1.LoadBalancerConfigProviderReference{
 		APIGroup: "netoperator.vmware.com",
 		Kind:     "FoundationLoadBalancerConfig",
 		Name:     "different-provider",
 	}
 	if err := k8sClient.Update(testCtx, latest); !isRejected(err) {
 		t.Fatalf("expected rejection for providerRef change once set, got: %v", err)
+	}
+}
+
+// --- providerRef required for foundation / avi / haproxy ---
+
+func TestLBC_ValidAvi_Admitted(t *testing.T) {
+	obj := lbcWithType("lbc-valid-avi", netv1alpha1.LoadBalancerConfigTypeAvi, "AviLoadBalancerConfig")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+func TestLBC_ValidHAProxy_Admitted(t *testing.T) {
+	obj := lbcWithType("lbc-valid-haproxy", netv1alpha1.LoadBalancerConfigTypeHAProxy, "HAProxyLoadBalancerConfig")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+func TestLBC_FoundationWithEmptyProviderRef_Rejected(t *testing.T) {
+	obj := lbcWithType("lbc-foundation-no-ref", netv1alpha1.LoadBalancerConfigTypeFoundation, "")
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for foundation without providerRef, got: %v", err)
+	}
+}
+
+func TestLBC_AviWithEmptyProviderRef_Rejected(t *testing.T) {
+	obj := lbcWithType("lbc-avi-no-ref", netv1alpha1.LoadBalancerConfigTypeAvi, "")
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for avi without providerRef, got: %v", err)
+	}
+}
+
+func TestLBC_HAProxyWithEmptyProviderRef_Rejected(t *testing.T) {
+	obj := lbcWithType("lbc-haproxy-no-ref", netv1alpha1.LoadBalancerConfigTypeHAProxy, "")
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for haproxy without providerRef, got: %v", err)
+	}
+}
+
+// --- providerRef must be zero for nsx / nsx-registered-avi ---
+
+func TestLBC_NSXWithProviderRef_Rejected(t *testing.T) {
+	obj := lbcWithType("lbc-nsx-with-ref", netv1alpha1.LoadBalancerConfigTypeNSX, "SomeLoadBalancerConfig")
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for nsx with non-empty providerRef, got: %v", err)
+	}
+}
+
+func TestLBC_NSXRegisteredAviWithProviderRef_Rejected(t *testing.T) {
+	obj := lbcWithType("lbc-nsx-reg-avi-with-ref", netv1alpha1.LoadBalancerConfigTypeNSXRegisteredAvi, "SomeLoadBalancerConfig")
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for nsx-registered-avi with non-empty providerRef, got: %v", err)
 	}
 }

@@ -10,6 +10,10 @@ import (
 )
 
 const (
+	// WorkloadNetworkConfigurationName is the required name for the singleton
+	// WorkloadNetworkConfiguration instance per cluster.
+	WorkloadNetworkConfigurationName = "default"
+
 	// WorkloadNetworkConditionReady is True when the WorkloadNetworkConfiguration
 	// has been fully reconciled.
 	WorkloadNetworkConditionReady = "Ready"
@@ -30,13 +34,14 @@ type VDSNetworkConfig struct {
 	// supervisor service NamespaceNetworkConfiguration specs.
 	//
 	// +required
-	PrimaryNetwork VSphereDistributedNetworkRef `json:"primaryNetwork,omitempty,omitzero"`
+	PrimaryNetwork VSphereDistributedNetworkRef `json:"primaryNetwork,omitzero"`
 }
 
 // WorkloadNetworkConfigurationSpec defines the desired global network
 // configuration for a Kubernetes cluster.
 //
 // +kubebuilder:validation:XValidation:rule="self.providers.exists(p, p == 'vsphere-distributed') || !has(self.vdsConfiguration)",message="vdsConfiguration may only be set when vsphere-distributed is listed in providers"
+// +kubebuilder:validation:XValidation:rule="!self.providers.exists(p, p == 'vsphere-distributed') || has(self.vdsConfiguration)",message="vdsConfiguration must be set when vsphere-distributed is listed in providers"
 type WorkloadNetworkConfigurationSpec struct {
 	// providers declares the network providers that should be installed and
 	// available in this cluster. Each entry indicates a network provider whose
@@ -49,8 +54,8 @@ type WorkloadNetworkConfigurationSpec struct {
 	Providers []NetworkProvider `json:"providers,omitempty"`
 
 	// vdsConfiguration holds global configuration for the vSphere Distributed
-	// Switch network provider. May only be set when vsphere-distributed is
-	// listed in providers.
+	// Switch network provider. Required when vsphere-distributed is listed in
+	// providers, and must not be set otherwise.
 	//
 	// +optional
 	VDSConfiguration VDSNetworkConfig `json:"vdsConfiguration,omitempty,omitzero"`
@@ -101,6 +106,7 @@ type WorkloadNetworkConfigurationStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster,shortName=wnc
 // +kubebuilder:subresource:status
+// +kubebuilder:validation:XValidation:rule="self.metadata.name == 'default'",message="WorkloadNetworkConfiguration must be named 'default'"
 
 // WorkloadNetworkConfiguration is a cluster-scoped resource that declares the
 // global network configuration for a Kubernetes cluster. It identifies which
@@ -109,7 +115,8 @@ type WorkloadNetworkConfigurationStatus struct {
 // also reflects derived configuration data for default-namespace and
 // supervisor-services networking.
 //
-// Only one instance of this resource, named "default", is expected per cluster.
+// Exactly one instance of this resource must exist per cluster, and it must be
+// named "default".
 type WorkloadNetworkConfiguration struct {
 	metav1.TypeMeta `json:",inline"`
 

@@ -67,8 +67,13 @@ type IPPoolCondition struct {
 // IPPoolSpec defines the desired state of IPPool.
 type IPPoolSpec struct {
 	// StartingAddress represents the starting IP address of the pool.
+	//
+	// +kubebuilder:validation:MinLength=1
 	StartingAddress string `json:"startingAddress"`
+
 	// AddressCount represents the number of IP addresses in the pool.
+	//
+	// +kubebuilder:validation:Minimum=1
 	AddressCount int64 `json:"addressCount"`
 }
 

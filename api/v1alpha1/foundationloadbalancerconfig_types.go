@@ -30,6 +30,27 @@ type FoundationLoadBalancerTopologyType string
 type FoundationLoadBalancerSize string
 type FoundationLoadBalancerAvailabilityMode string
 
+// IPAddress is a non-empty IP address string.
+// It must conform to IPv4 or IPv6 format.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=39
+type IPAddress string
+
+// NetworkCIDR is a non-empty CIDR notation string.
+// It must conform to IPv4 or IPv6 CIDR format.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=64
+type NetworkCIDR string
+
+// NetworkAddress is a non-empty IP address or hostname string.
+// It must conform to IPv4, IPv6, or hostname format.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+type NetworkAddress string
+
 // Spec objects. Input for FLB deployment.
 
 // FoundationLoadBalancerDeploymentSpec describes how to deploy the load balancer.
@@ -52,6 +73,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 
 	// Zones contains the names of zones eligible for placing nodes. Zones must be one of the
 	// AvailabilityZones defined and eligible for placement on the cluster.
+	// When empty, all supervisor zones are eligible.
 	Zones []string `json:"zones"`
 
 	// AvailabilityMode defines how the availability of the solution is deployed and configured.
@@ -164,6 +186,9 @@ type VirtualIPPoolsUtilization struct {
 
 // FoundationLoadBalancerConfigSpec defines the configuration for a vSphere Foundation Load Balancer.
 // This specification is used to configure the resources for the load balancer on vCenter Server.
+//
+// +kubebuilder:validation:XValidation:rule="!(oldSelf.deploymentSpec.availabilityMode == 'active-passive' && self.deploymentSpec.availabilityMode == 'single-node')",message="cannot downgrade from active-passive to single-node"
+// +kubebuilder:validation:XValidation:rule="!(has(self.deploymentSpec.singleNodeSpec) && has(self.deploymentSpec.activePassiveSpec))",message="singleNodeSpec and activePassiveSpec are mutually exclusive"
 type FoundationLoadBalancerConfigSpec struct {
 	// DeploymentSpec describes sizing and placement constraints of the load balancer.
 	DeploymentSpec FoundationLoadBalancerDeploymentSpec `json:"deploymentSpec"`
@@ -197,6 +222,8 @@ type FoundationLoadBalancerConfigSpec struct {
 type FoundationLoadBalancerNetworkConfigSpec struct {
 	// VirtualServerIPPools are the list of IPPools that are
 	// used for load balancer IP addresses.
+	//
+	// +kubebuilder:validation:MinItems=1
 	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools"`
 
 	// VirtualServerSubnets are the list of subnets specified in CIDR notation
@@ -205,9 +232,10 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	// The VirtualServerIPPools must fall within the subnet of the VirtualIPNetwork
 	// or one of these subnets.
 	//
+	// +listType=set
 	// +kubebuilder:default:={}
 	// +optional
-	VirtualServerSubnets []string `json:"virtualServerSubnets"`
+	VirtualServerSubnets []NetworkCIDR `json:"virtualServerSubnets"` //nolint:kubeapilinter
 
 	// DNSServers is the list of servers used for DNS traffic.
 	// These servers must be reachable from the network configured
@@ -215,7 +243,7 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	//
 	// +kubebuilder:default:={}
 	// +optional
-	DNSServers []string `json:"dnsServers"`
+	DNSServers []IPAddress `json:"dnsServers"` //nolint:kubeapilinter
 
 	// DNSSearchDomains are the domains resolvable on the specified DNSServers.
 	//
@@ -229,7 +257,7 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	//
 	// +kubebuilder:default:={}
 	// +optional
-	NTPServers []string `json:"ntpServers"`
+	NTPServers []NetworkAddress `json:"ntpServers"` //nolint:kubeapilinter
 
 	// SyslogEndpoint configures the syslog server. It accepts a protocol, host and port.
 	// If using TLS, you must configure a TLS CA that is capable of verifying the endpoint certificate.

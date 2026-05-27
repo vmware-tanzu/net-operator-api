@@ -296,12 +296,12 @@ func (in *FoundationLoadBalancerNetworkConfigSpec) DeepCopyInto(out *FoundationL
 	}
 	if in.VirtualServerSubnets != nil {
 		in, out := &in.VirtualServerSubnets, &out.VirtualServerSubnets
-		*out = make([]string, len(*in))
+		*out = make([]NetworkCIDR, len(*in))
 		copy(*out, *in)
 	}
 	if in.DNSServers != nil {
 		in, out := &in.DNSServers, &out.DNSServers
-		*out = make([]string, len(*in))
+		*out = make([]IPAddress, len(*in))
 		copy(*out, *in)
 	}
 	if in.DNSSearchDomains != nil {
@@ -311,7 +311,7 @@ func (in *FoundationLoadBalancerNetworkConfigSpec) DeepCopyInto(out *FoundationL
 	}
 	if in.NTPServers != nil {
 		in, out := &in.NTPServers, &out.NTPServers
-		*out = make([]string, len(*in))
+		*out = make([]NetworkAddress, len(*in))
 		copy(*out, *in)
 	}
 }
@@ -412,7 +412,7 @@ func (in *HAProxyLoadBalancerConfigSpec) DeepCopyInto(out *HAProxyLoadBalancerCo
 	*out = *in
 	if in.EndPointURLs != nil {
 		in, out := &in.EndPointURLs, &out.EndPointURLs
-		*out = make([]string, len(*in))
+		*out = make([]EndPointURL, len(*in))
 		copy(*out, *in)
 	}
 	out.CredentialSecretRef = in.CredentialSecretRef

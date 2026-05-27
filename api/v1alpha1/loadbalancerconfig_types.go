@@ -91,6 +91,7 @@ const (
 //
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerRef) || self.providerRef == oldSelf.providerRef",message="spec.providerRef is immutable once set"
 // +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind == 'HAProxyLoadBalancerConfig') || self.type in ['nsx', 'nsx-registered-avi']",message="spec.providerRef.kind must match spec.type"
+// +kubebuilder:validation:XValidation:rule="self.type in ['nsx', 'nsx-registered-avi'] ? (self.providerRef.apiGroup == '' && self.providerRef.kind == '' && self.providerRef.name == '') : true",message="spec.providerRef must be empty for nsx and nsx-registered-avi types"
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.
 	//
@@ -99,10 +100,11 @@ type LoadBalancerConfigSpec struct {
 	Type LoadBalancerConfigType `json:"type"`
 
 	// providerRef is a reference to a load balancer provider object that provides the details for this type of load balancer.
-	// Not set for nsx and nsx-registered-avi types.
+	// Required to be non-zero-valued (non-empty struct) for foundation, avi, and haproxy types.
+	// Must be strictly zero-valued (empty struct) for nsx and nsx-registered-avi types to preserve backwards compatibility
+	// and avoid ambiguity as to whether the field is ever set or not.
 	//
-	// +optional
-	ProviderRef *LoadBalancerConfigProviderReference `json:"providerRef,omitempty"`
+	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef"`
 }
 
 // LoadBalancerConfigStatus defines the observed state of LoadBalancerConfig

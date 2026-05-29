@@ -11,7 +11,7 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
-// +kubebuilder:validation:XValidation:rule="!has(self.previousProvider) || self.previousProvider != self.provider",message="previousProvider must differ from provider"
+// +kubebuilder:validation:XValidation:rule="!has(self.legacyProvider) || self.legacyProvider != self.provider",message="legacyProvider must differ from provider"
 //
 // NetworkSettings exposes information about the effective network configuration for a namespace.
 // This is observed, realized state, and its contents may be updated by further network configuration
@@ -31,22 +31,17 @@ type NetworkSettings struct {
 	// +required
 	Provider NetworkProvider `json:"provider,omitempty"`
 
-	// previousProvider is the network provider this namespace used immediately before
-	// transitioning to the current provider. When set, the migration from previousProvider
-	// to provider is either in progress or has recently completed; resources associated with
-	// the previous provider (such as Network objects originally backed by VSphereDistributedNetwork)
-	// may still exist in this namespace and require continued validation and reconciliation.
+	// legacyProvider is the network provider to which this namespace was previously affined.
+	// When set, the namespace has transitioned from legacyProvider to the current provider.
+	// APIs and resources associated with legacyProvider remain functional within this namespace
+	// but are no longer the governing provider; new network resources will be created under
+	// the current provider's APIs.
 	//
-	// Operators that serve resources for multiple providers should continue to validate and
-	// reconcile resources associated with previousProvider's APIs until this field is cleared.
-	// Net Operator clears this field once all resources belonging to the previous provider
-	// have been removed from the namespace.
-	//
-	// This field is absent when the namespace has never undergone a provider transition, or
-	// after a transition has fully completed and all prior-provider resources are gone.
+	// This field is absent when the namespace has never undergone a provider transition.
 	//
 	// +optional
-	PreviousProvider NetworkProvider `json:"previousProvider,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self in ['vsphere-distributed', 'nsx-tier1']",message="legacyProvider must be vsphere-distributed or nsx-tier1"
+	LegacyProvider NetworkProvider `json:"legacyProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

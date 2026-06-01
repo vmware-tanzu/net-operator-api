@@ -107,13 +107,15 @@ type SharedSubnet struct {
 	// +kubebuilder:validation:MaxLength=2048
 	Path string `json:"path,omitempty"`
 
-	// name is the name of the Subnet. When not set, it will be derived from
-	// the shared Subnet path. This field is immutable once set.
+	// name is the name of the Subnet. Used as the unique identifier for this
+	// entry in the sharedSubnets list and must be unique across all entries.
+	// This field is immutable.
 	//
-	// +optional
+	// +required
+	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name,omitempty"`
 
 	// podDefault indicates this Subnet is the default network for Pod workloads
 	// in this Namespace. At most one entry in sharedSubnets may be set to True.
@@ -183,7 +185,7 @@ type AutoCreateVPCConfig struct {
 	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
 }
 
-// VPCConfig specifies the NSX VPC network configuration for a namespace.
+// VPCConfig specifies the VPC network configuration for a namespace.
 //
 // There are two mutually exclusive modes:
 //
@@ -193,11 +195,11 @@ type AutoCreateVPCConfig struct {
 //  2. Auto-create VPC mode: Set autoCreateConfig to have a VPC automatically
 //     created and scoped to this namespace.
 //
-// +kubebuilder:validation:XValidation:rule="!(has(self.vpc) && self.vpc != ” && has(self.autoCreateConfig))",message="vpc and autoCreateConfig are mutually exclusive; set vpc for pre-created VPC mode or autoCreateConfig for auto-create VPC mode"
+// +kubebuilder:validation:XValidation:rule="!(has(self.vpc) && self.vpc != '' && has(self.autoCreateConfig))",message="vpc and autoCreateConfig are mutually exclusive; set vpc for pre-created VPC mode or autoCreateConfig for auto-create VPC mode"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() <= 1",message="at most one sharedSubnet may have podDefault set to True"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.vmDefault) && s.vmDefault == 'True').size() <= 1",message="at most one sharedSubnet may have vmDefault set to True"
-// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != ”)",message="vpc must be set when any sharedSubnet has podDefault set to True"
-// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.vmDefault) && s.vmDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != ”)",message="vpc must be set when any sharedSubnet has vmDefault set to True"
+// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != '')",message="vpc must be set when any sharedSubnet has podDefault set to True"
+// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.vmDefault) && s.vmDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != '')",message="vpc must be set when any sharedSubnet has vmDefault set to True"
 type VPCConfig struct {
 	// vpc is the NSX policy path of an existing VPC the namespace is associated
 	// with. When set, the namespace uses this pre-created VPC and
@@ -227,7 +229,7 @@ type VPCConfig struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=32
 	// +listType=map
-	// +listMapKey=path
+	// +listMapKey=name
 	SharedSubnets []SharedSubnet `json:"sharedSubnets,omitempty"`
 
 	// defaultSubnetSize is the default size of Namespace Subnets, specified as
@@ -249,7 +251,7 @@ type VPCConfig struct {
 //
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc'",message="only vsphere-distributed and vpc are currently supported; nsx-tier1 will be introduced in a future version"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' ? (has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0) : true",message="vsphereDistributedConfig.networks must contain at least one entry when type is vsphere-distributed"
-// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? (has(self.vpcConfig) && (self.vpcConfig.vpc != ” || has(self.vpcConfig.autoCreateConfig))) : true",message="vpcConfig must have either vpc (pre-created VPC mode) or autoCreateConfig (auto-create VPC mode) set when type is vpc"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? (has(self.vpcConfig) && (self.vpcConfig.vpc != '' || has(self.vpcConfig.autoCreateConfig))) : true",message="vpcConfig must have either vpc (pre-created VPC mode) or autoCreateConfig (auto-create VPC mode) set when type is vpc"
 type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines
 	// which provider-specific config section must be populated.
@@ -263,11 +265,11 @@ type NamespaceNetworkSpec struct {
 	// +optional
 	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
 
-	// vpcConfig contains the NSX VPC network configuration.
+	// vpcConfig contains the VPC network configuration.
 	// Required when type is vpc.
 	//
 	// When specified, network configuration is delegated to NSX Operator,
-	// which constructs a VPCNetworkConfiguration from this spec and orchestrates
+	// which constructs a VPCNetworkConfiguration from this spec and utilizes
 	// the NSX Operator APIs to provision and manage the Namespace's VPC resources.
 	//
 	// +optional
@@ -295,7 +297,7 @@ type NamespaceNetworkAssociation struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:MaxLength=2048
 	Message string `json:"message,omitempty"`
 }
 

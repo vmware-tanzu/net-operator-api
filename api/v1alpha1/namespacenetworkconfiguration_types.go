@@ -233,12 +233,13 @@ type VPCConfig struct {
 	SharedSubnets []SharedSubnet `json:"sharedSubnets,omitempty"`
 
 	// defaultSubnetSize is the default size of Namespace Subnets, specified as
-	// the number of IP addresses. Must be a power of 2. When not set, defaults
-	// to 32 (equivalent to a /27 subnet).
+	// the number of IP addresses. Must be a power of 2 (e.g. 16, 32, 64, 128).
+	// When not set, defaults to 32 (equivalent to a /27 subnet).
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65536
+	// +kubebuilder:validation:XValidation:rule="self == 0 || (self & (self - 1)) == 0",message="defaultSubnetSize must be a power of 2 (e.g. 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)"
 	DefaultSubnetSize int32 `json:"defaultSubnetSize,omitempty"`
 }
 

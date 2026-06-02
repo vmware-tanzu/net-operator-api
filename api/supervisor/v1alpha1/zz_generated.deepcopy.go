@@ -7,6 +7,7 @@
 package v1alpha1
 
 import (
+	v1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -17,7 +18,7 @@ func (in *NetworkProviderEntry) DeepCopyInto(out *NetworkProviderEntry) {
 	if in.SystemConfiguration != nil {
 		in, out := &in.SystemConfiguration, &out.SystemConfiguration
 		*out = new(NetworkProviderSystemConfig)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 }
 
@@ -34,6 +35,7 @@ func (in *NetworkProviderEntry) DeepCopy() *NetworkProviderEntry {
 // DeepCopyInto copies all properties of this object into another object of the same type.
 func (in *NetworkProviderSystemConfig) DeepCopyInto(out *NetworkProviderSystemConfig) {
 	*out = *in
+	in.VSphereDistributedConfig.DeepCopyInto(&out.VSphereDistributedConfig)
 }
 
 // DeepCopy returns a deep copy of the receiver.
@@ -47,16 +49,21 @@ func (in *NetworkProviderSystemConfig) DeepCopy() *NetworkProviderSystemConfig {
 }
 
 // DeepCopyInto copies all properties of this object into another object of the same type.
-func (in *SystemVDSNetworkConfig) DeepCopyInto(out *SystemVDSNetworkConfig) {
+func (in *SystemVSphereDistributedConfig) DeepCopyInto(out *SystemVSphereDistributedConfig) {
 	*out = *in
+	if in.Networks != nil {
+		in, out := &in.Networks, &out.Networks
+		*out = make([]v1alpha1.VSphereDistributedNetworkRef, len(*in))
+		copy(*out, *in)
+	}
 }
 
 // DeepCopy returns a deep copy of the receiver.
-func (in *SystemVDSNetworkConfig) DeepCopy() *SystemVDSNetworkConfig {
+func (in *SystemVSphereDistributedConfig) DeepCopy() *SystemVSphereDistributedConfig {
 	if in == nil {
 		return nil
 	}
-	out := new(SystemVDSNetworkConfig)
+	out := new(SystemVSphereDistributedConfig)
 	in.DeepCopyInto(out)
 	return out
 }

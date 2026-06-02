@@ -22,30 +22,49 @@ const (
 	WorkloadNetworkConditionSystemReady = "SystemNetworkConfigurationReady"
 )
 
-// SystemVDSNetworkConfig holds the VDS-specific configuration that the net-operator
-// uses to derive the system NamespaceNetworkConfiguration for the vsphere-distributed
-// provider.
-type SystemVDSNetworkConfig struct {
-	// network identifies the VSphereDistributedNetwork resource backing the system NNC.
+// SystemVSphereDistributedConfig mirrors VSphereDistributedConfig from
+// NamespaceNetworkSpec for use as a per-provider system-level NNC template.
+// Defined here (rather than referenced from api/v1alpha1) so that the
+// supervisor API can evolve independently of the per-namespace API.
+type SystemVSphereDistributedConfig struct {
+	// networks lists the VSphereDistributedNetwork resources that back the
+	// system NamespaceNetworkConfiguration. At least one entry is required.
 	//
 	// +required
-	Network netv1alpha1.VSphereDistributedNetworkRef `json:"network,omitempty"`
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=map
+	// +listMapKey=name
+	Networks []netv1alpha1.VSphereDistributedNetworkRef `json:"networks,omitempty"`
+
+	// defaultNetwork is the name of one of the entries in networks. The
+	// generated Network corresponding to this entry is labeled
+	// netoperator.vmware.com/is-default: "true".
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	DefaultNetwork string `json:"defaultNetwork,omitempty"`
 }
 
-// NetworkProviderSystemConfig carries provider-specific system-level NNC configuration.
-// Only the field corresponding to the parent provider type may be set; the per-entry CEL
-// rules on NetworkProviderEntry enforce this constraint.
+// NetworkProviderSystemConfig mirrors NamespaceNetworkSpec (without the type
+// field, which is carried by the parent NetworkProviderEntry) as the
+// system-level NNC template for a given provider. Only the field corresponding
+// to the parent provider type may be populated; the per-entry CEL rules on
+// NetworkProviderEntry enforce this constraint.
 type NetworkProviderSystemConfig struct {
-	// vdsConfig holds system-level configuration for the vsphere-distributed provider.
-	// Must be set when the parent provider entry type is vsphere-distributed; must be
-	// absent for all other provider types.
+	// vsphereDistributedConfig holds the vSphere Distributed network
+	// configuration for the system NamespaceNetworkConfiguration.
+	// Must be set when the parent provider entry type is vsphere-distributed;
+	// must be absent for all other provider types.
 	//
 	// +optional
-	VDSConfig SystemVDSNetworkConfig `json:"vdsConfig,omitempty,omitzero"`
+	VSphereDistributedConfig SystemVSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.type != 'vsphere-distributed' || has(self.systemConfiguration.vdsConfig)",message="systemConfiguration.vdsConfig must be set when type is vsphere-distributed"
-// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.systemConfiguration.vdsConfig)",message="systemConfiguration.vdsConfig may only be set when type is vsphere-distributed"
+// +kubebuilder:validation:XValidation:rule="self.type != 'vsphere-distributed' || has(self.systemConfiguration.vsphereDistributedConfig)",message="systemConfiguration.vsphereDistributedConfig must be set when type is vsphere-distributed"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.systemConfiguration.vsphereDistributedConfig)",message="systemConfiguration.vsphereDistributedConfig may only be set when type is vsphere-distributed"
 
 // NetworkProviderEntry pairs a network provider type with its system-level configuration.
 // Exactly one entry per type is allowed (enforced via listType=map on the providers field).
@@ -55,9 +74,9 @@ type NetworkProviderEntry struct {
 	// +required
 	Type netv1alpha1.NetworkProvider `json:"type,omitempty"`
 
-	// systemConfiguration holds the system-level network configuration for this provider.
-	// For provider types that require no system config (e.g. nsx-tier1), set this to an
-	// empty object.
+	// systemConfiguration holds the system-level NNC template for this provider,
+	// mirroring NamespaceNetworkSpec without the redundant type field. For providers
+	// that require no system config (e.g. nsx-tier1), an empty object is valid.
 	//
 	// +required
 	SystemConfiguration *NetworkProviderSystemConfig `json:"systemConfiguration,omitempty"`

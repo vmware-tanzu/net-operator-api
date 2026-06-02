@@ -29,7 +29,7 @@ type SystemVDSNetworkConfig struct {
 	// network identifies the VSphereDistributedNetwork resource backing the system NNC.
 	//
 	// +required
-	Network netv1alpha1.VSphereDistributedNetworkRef `json:"network"`
+	Network netv1alpha1.VSphereDistributedNetworkRef `json:"network,omitempty"`
 }
 
 // NetworkProviderSystemConfig carries provider-specific system-level NNC configuration.
@@ -60,7 +60,7 @@ type NetworkProviderEntry struct {
 	// empty object.
 	//
 	// +required
-	SystemConfiguration NetworkProviderSystemConfig `json:"systemConfiguration"`
+	SystemConfiguration *NetworkProviderSystemConfig `json:"systemConfiguration,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.providers.exists(p, p.type == self.activeSystemProvider)",message="activeSystemProvider must reference a provider type declared in providers"
@@ -108,12 +108,21 @@ type WorkloadNetworkConfigurationStatus struct {
 // network providers available in this Supervisor and which provider is currently active for
 // system-level networking.
 type WorkloadNetworkConfiguration struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// metadata carries standard Kubernetes object metadata.
+	//
+	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// spec defines the desired state of this WorkloadNetworkConfiguration.
+	//
 	// +required
-	Spec   WorkloadNetworkConfigurationSpec   `json:"spec,omitempty"`
-	Status WorkloadNetworkConfigurationStatus `json:"status,omitempty"`
+	Spec WorkloadNetworkConfigurationSpec `json:"spec,omitempty,omitzero"`
+
+	// status describes the observed state of this WorkloadNetworkConfiguration.
+	//
+	// +optional
+	Status *WorkloadNetworkConfigurationStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

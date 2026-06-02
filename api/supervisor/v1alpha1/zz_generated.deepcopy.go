@@ -14,7 +14,11 @@ import (
 // DeepCopyInto copies all properties of this object into another object of the same type.
 func (in *NetworkProviderEntry) DeepCopyInto(out *NetworkProviderEntry) {
 	*out = *in
-	out.SystemConfiguration = in.SystemConfiguration
+	if in.SystemConfiguration != nil {
+		in, out := &in.SystemConfiguration, &out.SystemConfiguration
+		*out = new(NetworkProviderSystemConfig)
+		**out = **in
+	}
 }
 
 // DeepCopy returns a deep copy of the receiver.
@@ -63,7 +67,11 @@ func (in *WorkloadNetworkConfiguration) DeepCopyInto(out *WorkloadNetworkConfigu
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec.DeepCopyInto(&out.Spec)
-	in.Status.DeepCopyInto(&out.Status)
+	if in.Status != nil {
+		in, out := &in.Status, &out.Status
+		*out = new(WorkloadNetworkConfigurationStatus)
+		(*in).DeepCopyInto(*out)
+	}
 }
 
 // DeepCopy returns a deep copy of the receiver.
@@ -122,7 +130,9 @@ func (in *WorkloadNetworkConfigurationSpec) DeepCopyInto(out *WorkloadNetworkCon
 	if in.Providers != nil {
 		in, out := &in.Providers, &out.Providers
 		*out = make([]NetworkProviderEntry, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 

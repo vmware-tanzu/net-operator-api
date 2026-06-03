@@ -85,6 +85,18 @@ type VSphereDistributedConfig struct {
 	DefaultNetwork string `json:"defaultNetwork,omitempty"`
 }
 
+// NamespaceNetworkConfig holds the provider-specific fields that are shared
+// between NamespaceNetworkSpec and WorkloadNetworkConfiguration's per-provider
+// system templates. Adding new provider config fields here makes them
+// automatically available in both APIs.
+type NamespaceNetworkConfig struct {
+	// vsphereDistributedConfig contains the vSphere Distributed (VDS) network
+	// configuration. Required when type is vsphere-distributed.
+	//
+	// +optional
+	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
+}
+
 // NamespaceNetworkSpec defines the desired network configuration
 // for Namespaces associated with this NamespaceNetworkConfiguration.
 //
@@ -100,11 +112,7 @@ type NamespaceNetworkSpec struct {
 	// +required
 	Type NetworkProvider `json:"type,omitempty"`
 
-	// vsphereDistributedConfig contains the vSphere Distributed (VDS) network
-	// configuration. Required when type is vsphere-distributed.
-	//
-	// +optional
-	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
+	NamespaceNetworkConfig `json:",inline"`
 }
 
 // NamespaceNetworkAssociation describes the reconciliation state of a

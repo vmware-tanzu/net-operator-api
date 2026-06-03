@@ -17,7 +17,7 @@ func (in *NetworkProviderEntry) DeepCopyInto(out *NetworkProviderEntry) {
 	*out = *in
 	if in.SystemConfiguration != nil {
 		in, out := &in.SystemConfiguration, &out.SystemConfiguration
-		*out = new(NetworkProviderSystemConfig)
+		*out = new(v1alpha1.NamespaceNetworkConfig)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -28,42 +28,6 @@ func (in *NetworkProviderEntry) DeepCopy() *NetworkProviderEntry {
 		return nil
 	}
 	out := new(NetworkProviderEntry)
-	in.DeepCopyInto(out)
-	return out
-}
-
-// DeepCopyInto copies all properties of this object into another object of the same type.
-func (in *NetworkProviderSystemConfig) DeepCopyInto(out *NetworkProviderSystemConfig) {
-	*out = *in
-	in.VSphereDistributedConfig.DeepCopyInto(&out.VSphereDistributedConfig)
-}
-
-// DeepCopy returns a deep copy of the receiver.
-func (in *NetworkProviderSystemConfig) DeepCopy() *NetworkProviderSystemConfig {
-	if in == nil {
-		return nil
-	}
-	out := new(NetworkProviderSystemConfig)
-	in.DeepCopyInto(out)
-	return out
-}
-
-// DeepCopyInto copies all properties of this object into another object of the same type.
-func (in *SystemVSphereDistributedConfig) DeepCopyInto(out *SystemVSphereDistributedConfig) {
-	*out = *in
-	if in.Networks != nil {
-		in, out := &in.Networks, &out.Networks
-		*out = make([]v1alpha1.VSphereDistributedNetworkRef, len(*in))
-		copy(*out, *in)
-	}
-}
-
-// DeepCopy returns a deep copy of the receiver.
-func (in *SystemVSphereDistributedConfig) DeepCopy() *SystemVSphereDistributedConfig {
-	if in == nil {
-		return nil
-	}
-	out := new(SystemVSphereDistributedConfig)
 	in.DeepCopyInto(out)
 	return out
 }

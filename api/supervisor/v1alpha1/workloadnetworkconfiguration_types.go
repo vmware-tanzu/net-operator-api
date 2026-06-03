@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,10 +36,6 @@ type NetworkProviderEntry struct {
 	Type netv1alpha1.NetworkProvider `json:"type,omitempty"`
 
 	// systemConfiguration holds the provider-specific NNC template for this provider.
-	// It mirrors NamespaceNetworkConfig — omitting the type field, which is carried by
-	// the parent entry — so that NNC-level provider configuration can be specified here
-	// and applied system-wide. For providers that require no additional config
-	// (e.g. nsx-tier1), an empty object is valid.
 	//
 	// +required
 	SystemConfiguration *netv1alpha1.NamespaceNetworkConfig `json:"systemConfiguration,omitempty"`

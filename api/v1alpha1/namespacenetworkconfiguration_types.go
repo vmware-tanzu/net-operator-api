@@ -163,7 +163,7 @@ type AutoCreateVPCConfig struct {
 	// NSX Projects provide multi-tenancy by partitioning networking and
 	// security configurations within a single NSX deployment.
 	//
-	// +optional
+	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=2048
 	NSXProject string `json:"nsxProject,omitempty"`
@@ -177,7 +177,7 @@ type AutoCreateVPCConfig struct {
 	//
 	// This field is immutable once set.
 	//
-	// +optional
+	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=2048
 	VPCConnectivityProfile string `json:"vpcConnectivityProfile,omitempty"`
@@ -228,7 +228,7 @@ type VPCConfig struct {
 	// namespace-scoped VPC. Mutually exclusive with vpc.
 	//
 	// +optional
-	AutoCreateConfig *AutoCreateVPCConfig `json:"autoCreateConfig,omitempty"`
+	AutoCreateConfig AutoCreateVPCConfig `json:"autoCreateConfig,omitempty,omitzero"`
 
 	// sharedSubnets lists pre-created Subnets to be associated with this
 	// Namespace. At most one entry may have podDefault set to True, and at

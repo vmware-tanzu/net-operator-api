@@ -255,7 +255,7 @@ type VPCConfig struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65536
-	// +kubebuilder:validation:XValidation:rule="self == 0 || (self & (self - 1)) == 0",message="defaultSubnetSize must be a power of 2 (e.g. 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)"
+	// +kubebuilder:validation:XValidation:rule="self == 0 || self in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]",message="defaultSubnetSize must be a power of 2 (e.g. 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)"
 	DefaultSubnetSize int32 `json:"defaultSubnetSize,omitempty"`
 }
 

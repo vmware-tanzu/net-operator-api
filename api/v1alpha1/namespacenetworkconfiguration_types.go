@@ -98,18 +98,22 @@ const (
 )
 
 // SharedSubnet defines a pre-created Subnet to be associated with a Namespace.
+//
+// +kubebuilder:validation:XValidation:rule="oldSelf.path == '' || self.path == oldSelf.path",message="path is immutable once set"
+// +kubebuilder:validation:XValidation:rule="oldSelf.name == '' || self.name == oldSelf.name",message="name is immutable once set"
 type SharedSubnet struct {
 	// path is the NSX policy path of the shared Subnet to be associated with
-	// this Namespace.
+	// this Namespace. This field is immutable once set.
 	//
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=2048
 	Path string `json:"path,omitempty"`
 
-	// name is the name of the Subnet. Used as the unique identifier for this
-	// entry in the sharedSubnets list and must be unique across all entries.
-	// This field is immutable.
+	// name is the name of the NSX Operator Subnet CR that will be created in
+	// each associated Namespace to represent this shared Subnet. It serves as
+	// the unique identifier for this entry in the sharedSubnets list and must
+	// be unique across all entries. This field is immutable.
 	//
 	// +required
 	// +kubebuilder:validation:MinLength=1
@@ -148,9 +152,13 @@ type SharedSubnet struct {
 
 // AutoCreateVPCConfig specifies the configuration used to automatically create
 // a namespace-scoped VPC.
+//
+// +kubebuilder:validation:XValidation:rule="oldSelf.nsxProject == '' || self.nsxProject == oldSelf.nsxProject",message="nsxProject is immutable once set"
+// +kubebuilder:validation:XValidation:rule="oldSelf.vpcConnectivityProfile == '' || self.vpcConnectivityProfile == oldSelf.vpcConnectivityProfile",message="vpcConnectivityProfile is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.privateCIDRs) || oldSelf.privateCIDRs.all(cidr, self.privateCIDRs.exists(c, c == cidr))",message="privateCIDRs is append-only; existing entries cannot be removed"
 type AutoCreateVPCConfig struct {
 	// nsxProject is the NSX policy path of the Project the namespace is
-	// associated with.
+	// associated with. This field is immutable once set.
 	//
 	// NSX Projects provide multi-tenancy by partitioning networking and
 	// security configurations within a single NSX deployment.
@@ -167,6 +175,8 @@ type AutoCreateVPCConfig struct {
 	//   - External IP blocks (for public subnets and external IP bindings)
 	//   - Private Transit Gateway IP blocks (for inter-VPC communication)
 	//
+	// This field is immutable once set.
+	//
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=2048
@@ -177,6 +187,8 @@ type AutoCreateVPCConfig struct {
 	//   - CIDRs in the VPC connectivity profile
 	//   - Kubernetes service CIDRs
 	//   - Other services running in the datacenter
+	//
+	// This field is append-only; existing entries may not be removed.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
@@ -195,7 +207,9 @@ type AutoCreateVPCConfig struct {
 //  2. Auto-create VPC mode: Set autoCreateConfig to have a VPC automatically
 //     created and scoped to this namespace.
 //
+// +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:XValidation:rule="!(has(self.vpc) && self.vpc != '' && has(self.autoCreateConfig))",message="vpc and autoCreateConfig are mutually exclusive; set vpc for pre-created VPC mode or autoCreateConfig for auto-create VPC mode"
+// +kubebuilder:validation:XValidation:rule="oldSelf.vpc == '' || self.vpc == oldSelf.vpc",message="vpc is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() <= 1",message="at most one sharedSubnet may have podDefault set to True"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.vmDefault) && s.vmDefault == 'True').size() <= 1",message="at most one sharedSubnet may have vmDefault set to True"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != '')",message="vpc must be set when any sharedSubnet has podDefault set to True"
@@ -203,7 +217,7 @@ type AutoCreateVPCConfig struct {
 type VPCConfig struct {
 	// vpc is the NSX policy path of an existing VPC the namespace is associated
 	// with. When set, the namespace uses this pre-created VPC and
-	// autoCreateConfig must not be set.
+	// autoCreateConfig must not be set. This field is immutable once set.
 	//
 	// +optional
 	// +kubebuilder:validation:MinLength=1
@@ -218,7 +232,9 @@ type VPCConfig struct {
 
 	// sharedSubnets lists pre-created Subnets to be associated with this
 	// Namespace. At most one entry may have podDefault set to True, and at
-	// most one entry may have vmDefault set to True.
+	// most one entry may have vmDefault set to True. These constraints are
+	// enforced by validation rules; the API server will reject any update
+	// that sets podDefault or vmDefault to True on more than one entry.
 	//
 	// A Subnet that is currently in use cannot be removed. If all shared Subnets
 	// acting as a Pod or VM default are removed, the default network falls back
@@ -248,11 +264,14 @@ type VPCConfig struct {
 //
 // The type field selects the active network provider. For the vsphere-distributed
 // provider, vsphereDistributedConfig must be populated. For the vpc provider,
-// vpcConfig must be populated.
+// vpcConfig must be populated. Only the config section corresponding to the
+// selected type may be populated; setting both vsphereDistributedConfig and
+// vpcConfig is invalid and will be rejected by the API server.
 //
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc'",message="only vsphere-distributed and vpc are currently supported; nsx-tier1 will be introduced in a future version"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' ? (has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0) : true",message="vsphereDistributedConfig.networks must contain at least one entry when type is vsphere-distributed"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? (has(self.vpcConfig) && (self.vpcConfig.vpc != '' || has(self.vpcConfig.autoCreateConfig))) : true",message="vpcConfig must have either vpc (pre-created VPC mode) or autoCreateConfig (auto-create VPC mode) set when type is vpc"
+// +kubebuilder:validation:XValidation:rule="!(has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0 && ((has(self.vpcConfig.vpc) && self.vpcConfig.vpc != '') || has(self.vpcConfig.autoCreateConfig)))",message="vsphereDistributedConfig and vpcConfig are mutually exclusive; only the config section matching the selected type may be populated"
 type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines
 	// which provider-specific config section must be populated.
@@ -274,7 +293,7 @@ type NamespaceNetworkSpec struct {
 	// the NSX Operator APIs to provision and manage the Namespace's VPC resources.
 	//
 	// +optional
-	VPCConfig *VPCConfig `json:"vpcConfig,omitempty"`
+	VPCConfig VPCConfig `json:"vpcConfig,omitempty,omitzero"`
 }
 
 // NamespaceNetworkAssociation describes the reconciliation state of a

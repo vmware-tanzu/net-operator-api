@@ -99,8 +99,8 @@ const (
 
 // SharedSubnet defines a pre-created Subnet to be associated with a Namespace.
 //
-// +kubebuilder:validation:XValidation:rule="oldSelf.path == '' || self.path == oldSelf.path",message="path is immutable once set"
-// +kubebuilder:validation:XValidation:rule="oldSelf.name == '' || self.name == oldSelf.name",message="name is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || self.path == oldSelf.path",message="path is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.name) || self.name == oldSelf.name",message="name is immutable once set"
 type SharedSubnet struct {
 	// path is the NSX policy path of the shared Subnet to be associated with
 	// this Namespace. This field is immutable once set.
@@ -153,8 +153,8 @@ type SharedSubnet struct {
 // AutoCreateVPCConfig specifies the configuration used to automatically create
 // a namespace-scoped VPC.
 //
-// +kubebuilder:validation:XValidation:rule="oldSelf.nsxProject == '' || self.nsxProject == oldSelf.nsxProject",message="nsxProject is immutable once set"
-// +kubebuilder:validation:XValidation:rule="oldSelf.vpcConnectivityProfile == '' || self.vpcConnectivityProfile == oldSelf.vpcConnectivityProfile",message="vpcConnectivityProfile is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.nsxProject) || self.nsxProject == oldSelf.nsxProject",message="nsxProject is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.vpcConnectivityProfile) || self.vpcConnectivityProfile == oldSelf.vpcConnectivityProfile",message="vpcConnectivityProfile is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.privateCIDRs) || oldSelf.privateCIDRs.all(cidr, self.privateCIDRs.exists(c, c == cidr))",message="privateCIDRs is append-only; existing entries cannot be removed"
 type AutoCreateVPCConfig struct {
 	// nsxProject is the NSX policy path of the Project the namespace is
@@ -209,7 +209,7 @@ type AutoCreateVPCConfig struct {
 //
 // +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:XValidation:rule="!(has(self.vpc) && self.vpc != '' && has(self.autoCreateConfig))",message="vpc and autoCreateConfig are mutually exclusive; set vpc for pre-created VPC mode or autoCreateConfig for auto-create VPC mode"
-// +kubebuilder:validation:XValidation:rule="oldSelf.vpc == '' || self.vpc == oldSelf.vpc",message="vpc is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.vpc) || self.vpc == oldSelf.vpc",message="vpc is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() <= 1",message="at most one sharedSubnet may have podDefault set to True"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.vmDefault) && s.vmDefault == 'True').size() <= 1",message="at most one sharedSubnet may have vmDefault set to True"
 // +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != '')",message="vpc must be set when any sharedSubnet has podDefault set to True"

@@ -62,7 +62,12 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	Size FoundationLoadBalancerSize `json:"size"`
 
 	// StoragePolicy is a vSphere Storage Policy ID which defines node storage placement.
-	StoragePolicy string `json:"storagePolicy"`
+	// If unset, it will be defaulted to the Supervisor Control Plane's Storage Policy.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	StoragePolicy string `json:"storagePolicy,omitempty"`
 
 	// Version number desired by the operator.
 	//
@@ -74,7 +79,9 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// Zones contains the names of zones eligible for placing nodes. Zones must be one of the
 	// AvailabilityZones defined and eligible for placement on the cluster.
 	// When empty, all supervisor zones are eligible.
-	Zones []string `json:"zones"`
+	//
+	// +optional
+	Zones []string `json:"zones,omitempty"`
 
 	// AvailabilityMode defines how the availability of the solution is deployed and configured.
 	// +kubebuilder:validation:Enum=active-passive;single-node

@@ -9,6 +9,7 @@ import (
 
 	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -171,5 +172,82 @@ func TestFoundationLoadBalancerConfig_BothSingleNodeAndActivePassive_Rejected(t 
 	obj.Spec.DeploymentSpec.SingleNodeAvailabilityMode = &netv1alpha1.SingleNodeAvailabilityMode{Replicas: 1}
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
 		t.Fatalf("expected rejection for both singleNodeSpec and activePassiveSpec, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_NoZones_Admitted verifies that omitting zones is valid;
+// net-operator will treat all supervisor AvailabilityZones as eligible placement targets.
+func TestFoundationLoadBalancerConfig_NoZones_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-no-zones")
+	obj.Spec.DeploymentSpec.Zones = nil
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission without zones, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+// TestFoundationLoadBalancerConfig_ExplicitZones_Admitted verifies that supplying one or more
+// named zones is still admitted.
+func TestFoundationLoadBalancerConfig_ExplicitZones_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-explicit-zones")
+	obj.Spec.DeploymentSpec.Zones = []string{"zone-a", "zone-b"}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission with explicit zones, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+// TestFoundationLoadBalancerConfig_NoStoragePolicy_Admitted verifies that omitting storagePolicy
+// is valid; the supervisor control plane's storage policy is used as the default.
+func TestFoundationLoadBalancerConfig_NoStoragePolicy_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-no-storage-policy")
+	obj.Spec.DeploymentSpec.StoragePolicy = ""
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission without storagePolicy, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+// TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected verifies that an explicitly empty
+// storagePolicy string is rejected by MinLength=1.  Because the Go struct field carries omitempty,
+// the Go JSON marshaler omits an empty StoragePolicy; we use an Unstructured object to bypass this
+// and send "storagePolicy": "" so the server's MinLength constraint is exercised directly.
+func TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "netoperator.vmware.com/v1alpha1",
+			"kind":       "FoundationLoadBalancerConfig",
+			"metadata": map[string]interface{}{
+				"name":      "flbc-empty-storage",
+				"namespace": flbcNS,
+			},
+			"spec": map[string]interface{}{
+				"deploymentSpec": map[string]interface{}{
+					"size":             "small",
+					"availabilityMode": "active-passive",
+					"storagePolicy":    "",
+					"zones":            []interface{}{"zone-a"},
+					"activePassiveSpec": map[string]interface{}{
+						"replicas": int64(2),
+					},
+				},
+				"virtualIPNetwork": map[string]interface{}{
+					"name": "vip-net",
+				},
+				"networkSpec": map[string]interface{}{
+					"virtualServerIPPools": []interface{}{
+						map[string]interface{}{"name": "pool-1"},
+					},
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for explicit empty storagePolicy, got: %v", err)
+		_ = k8sClient.Delete(testCtx, obj)
 	}
 }

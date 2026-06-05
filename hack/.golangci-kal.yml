@@ -54,7 +54,7 @@ linters:
             forbiddenmarkers:
               markers:
                 - identifier: "kubebuilder:default"
-                - identifier: "default" 
+                - identifier: "default"
             conditions:
               isFirstField: Warn
               usePatchStrategy: Forbid

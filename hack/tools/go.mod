@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	k8s.io/code-generator v0.30.0
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230620070423-a784ee78d04b
-	sigs.k8s.io/controller-tools v0.14.0
+	sigs.k8s.io/controller-tools v0.15.0
 	sigs.k8s.io/kube-api-linter v0.0.0-20260423112246-3fa174937a6b
 )
 

@@ -316,12 +316,12 @@ func (in *FoundationLoadBalancerNetworkConfigSpec) DeepCopyInto(out *FoundationL
 	}
 	if in.VirtualServerSubnets != nil {
 		in, out := &in.VirtualServerSubnets, &out.VirtualServerSubnets
-		*out = make([]NetworkCIDR, len(*in))
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 	if in.DNSServers != nil {
 		in, out := &in.DNSServers, &out.DNSServers
-		*out = make([]IPAddress, len(*in))
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 	if in.DNSSearchDomains != nil {
@@ -331,7 +331,7 @@ func (in *FoundationLoadBalancerNetworkConfigSpec) DeepCopyInto(out *FoundationL
 	}
 	if in.NTPServers != nil {
 		in, out := &in.NTPServers, &out.NTPServers
-		*out = make([]NetworkAddress, len(*in))
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 }

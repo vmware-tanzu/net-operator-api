@@ -5,6 +5,7 @@
 package cel_test
 
 import (
+	"strings"
 	"testing"
 
 	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
@@ -76,11 +77,11 @@ func TestFoundationLoadBalancerConfig_ValidSingleNode_Admitted(t *testing.T) {
 }
 
 // TestFoundationLoadBalancerConfig_EmptyDNSServer_Rejected verifies that an empty string item in dnsServers
-// is rejected by the MinLength=1 constraint on NetworkAddress.
+// is rejected by the items:MinLength=1 constraint.
 func TestFoundationLoadBalancerConfig_EmptyDNSServer_Rejected(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-empty-dns")
-	obj.Spec.NetworkSpec.DNSServers = []netv1alpha1.IPAddress{""}
+	obj.Spec.NetworkSpec.DNSServers = []string{""}
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
 		t.Fatalf("expected rejection for empty DNS server string, got: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestFoundationLoadBalancerConfig_EmptyDNSServer_Rejected(t *testing.T) {
 func TestFoundationLoadBalancerConfig_NonEmptyDNSServer_Admitted(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-ipv6-dns")
-	obj.Spec.NetworkSpec.DNSServers = []netv1alpha1.IPAddress{"2001:db8::1"}
+	obj.Spec.NetworkSpec.DNSServers = []string{"2001:db8::1"}
 	if err := k8sClient.Create(testCtx, obj); err != nil {
 		t.Fatalf("expected admission for non-IPv4 DNS server, got: %v", err)
 	}
@@ -104,7 +105,7 @@ func TestFoundationLoadBalancerConfig_NonEmptyDNSServer_Admitted(t *testing.T) {
 func TestFoundationLoadBalancerConfig_MalformedDNSServer_Admitted(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-malformed-dns")
-	obj.Spec.NetworkSpec.DNSServers = []netv1alpha1.IPAddress{"not-an-ip"}
+	obj.Spec.NetworkSpec.DNSServers = []string{"not-an-ip"}
 	if err := k8sClient.Create(testCtx, obj); err != nil {
 		t.Fatalf("expected admission for non-empty malformed DNS server, got: %v", err)
 	}
@@ -112,11 +113,11 @@ func TestFoundationLoadBalancerConfig_MalformedDNSServer_Admitted(t *testing.T) 
 }
 
 // TestFoundationLoadBalancerConfig_EmptyVIPSubnet_Rejected verifies that an empty string item in
-// virtualServerSubnets is rejected by the MinLength=1 constraint on NetworkCIDR.
+// virtualServerSubnets is rejected by the items:MinLength=1 constraint.
 func TestFoundationLoadBalancerConfig_EmptyVIPSubnet_Rejected(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-empty-cidr")
-	obj.Spec.NetworkSpec.VirtualServerSubnets = []netv1alpha1.NetworkCIDR{""}
+	obj.Spec.NetworkSpec.VirtualServerSubnets = []string{""}
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
 		t.Fatalf("expected rejection for empty VIP subnet string, got: %v", err)
 	}
@@ -128,7 +129,7 @@ func TestFoundationLoadBalancerConfig_EmptyVIPSubnet_Rejected(t *testing.T) {
 func TestFoundationLoadBalancerConfig_MalformedVIPSubnet_Admitted(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-malformed-cidr")
-	obj.Spec.NetworkSpec.VirtualServerSubnets = []netv1alpha1.NetworkCIDR{"not/a/cidr"}
+	obj.Spec.NetworkSpec.VirtualServerSubnets = []string{"not/a/cidr"}
 	if err := k8sClient.Create(testCtx, obj); err != nil {
 		t.Fatalf("expected admission for non-empty malformed CIDR, got: %v", err)
 	}
@@ -175,6 +176,61 @@ func TestFoundationLoadBalancerConfig_BothSingleNodeAndActivePassive_Rejected(t 
 	}
 }
 
+// makeZones returns a slice of n zone names, each the single character "z".
+func makeZones(n int) []string {
+	z := make([]string, n)
+	for i := range z {
+		z[i] = "z"
+	}
+	return z
+}
+
+// TestFoundationLoadBalancerConfig_TooManyZones_Rejected verifies that providing more than 256
+// zones is rejected by the MaxItems=256 constraint.
+func TestFoundationLoadBalancerConfig_TooManyZones_Rejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-zones-overflow")
+	obj.Spec.DeploymentSpec.Zones = makeZones(257)
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for >256 zones, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_ZonesAtMaxCount_Admitted verifies that exactly 256 zones are
+// admitted (boundary condition for MaxItems=256).
+func TestFoundationLoadBalancerConfig_ZonesAtMaxCount_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-zones-maxcount")
+	obj.Spec.DeploymentSpec.Zones = makeZones(256)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for 256 zones, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+// TestFoundationLoadBalancerConfig_ZoneNameTooLong_Rejected verifies that a zone name exceeding
+// 253 characters is rejected by the items:MaxLength=253 constraint.
+func TestFoundationLoadBalancerConfig_ZoneNameTooLong_Rejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-zone-toolong")
+	obj.Spec.DeploymentSpec.Zones = []string{strings.Repeat("z", 254)}
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for zone name >253 chars, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_ZoneNameAtMaxLength_Admitted verifies that a zone name of
+// exactly 253 characters is admitted (boundary condition).
+func TestFoundationLoadBalancerConfig_ZoneNameAtMaxLength_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-zone-maxlen")
+	obj.Spec.DeploymentSpec.Zones = []string{strings.Repeat("z", 253)}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for zone name of 253 chars, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
 // TestFoundationLoadBalancerConfig_NoZones_Admitted verifies that omitting zones is valid;
 // net-operator will treat all supervisor AvailabilityZones as eligible placement targets.
 func TestFoundationLoadBalancerConfig_NoZones_Admitted(t *testing.T) {
@@ -195,6 +251,29 @@ func TestFoundationLoadBalancerConfig_ExplicitZones_Admitted(t *testing.T) {
 	obj.Spec.DeploymentSpec.Zones = []string{"zone-a", "zone-b"}
 	if err := k8sClient.Create(testCtx, obj); err != nil {
 		t.Fatalf("expected admission with explicit zones, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+// TestFoundationLoadBalancerConfig_EmptyNTPServer_Rejected verifies that an empty string item in
+// ntpServers is rejected by the items:MinLength=1 constraint.
+func TestFoundationLoadBalancerConfig_EmptyNTPServer_Rejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-empty-ntp")
+	obj.Spec.NetworkSpec.NTPServers = []string{""}
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for empty NTP server string, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_NonEmptyNTPServer_Admitted verifies that a non-empty NTP server
+// hostname is admitted — format validation is deferred to the FLBC webhook.
+func TestFoundationLoadBalancerConfig_NonEmptyNTPServer_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-valid-ntp")
+	obj.Spec.NetworkSpec.NTPServers = []string{"ntp.example.com"}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for non-empty NTP server, got: %v", err)
 	}
 	_ = k8sClient.Delete(testCtx, obj)
 }

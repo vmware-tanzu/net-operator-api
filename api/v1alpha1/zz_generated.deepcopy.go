@@ -997,11 +997,6 @@ func (in *NamespaceNetworkStatus) DeepCopyInto(out *NamespaceNetworkStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.ObservedGeneration != nil {
-		in, out := &in.ObservedGeneration, &out.ObservedGeneration
-		*out = new(int64)
-		**out = **in
-	}
 	if in.AssociatedNamespaces != nil {
 		in, out := &in.AssociatedNamespaces, &out.AssociatedNamespaces
 		*out = make([]NamespaceNetworkAssociation, len(*in))

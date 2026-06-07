@@ -146,14 +146,6 @@ type NamespaceNetworkStatus struct {
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// observedGeneration is the metadata.generation that this status was
-	// computed from. Clients must compare this against metadata.generation
-	// before relying on any field in status; if they differ, the status
-	// reflects a prior spec version and should be treated as stale.
-	//
-	// +optional
-	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-
 	// associatedNamespaces lists each Namespace currently associated with this
 	// NamespaceNetworkConfiguration and its individual reconciliation state. Net
 	// Operator updates this list as Namespaces are attached or detached via the
@@ -185,8 +177,7 @@ type NamespaceNetworkStatus struct {
 // resources into associated Namespaces, and creates a NetworkSettings CR in each
 // Namespace to expose the active provider to network-aware operators.
 //
-// Deletion is blocked by the
-// netoperator.vmware.com/namespace-network-configuration-protection finalizer
+// Deletion is blocked by the netoperator.vmware.com/nnc-protection  finalizer
 // while any Namespace holds the netoperator.vmware.com/network-configuration
 // label pointing to this resource.
 //

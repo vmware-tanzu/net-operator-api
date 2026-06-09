@@ -7,7 +7,6 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -15,11 +14,7 @@ import (
 // DeepCopyInto copies all properties of this object into another object of the same type.
 func (in *NetworkProviderEntry) DeepCopyInto(out *NetworkProviderEntry) {
 	*out = *in
-	if in.SystemConfiguration != nil {
-		in, out := &in.SystemConfiguration, &out.SystemConfiguration
-		*out = new(v1alpha1.NamespaceNetworkConfig)
-		(*in).DeepCopyInto(*out)
-	}
+	in.SystemConfiguration.DeepCopyInto(&out.SystemConfiguration)
 }
 
 // DeepCopy returns a deep copy of the receiver.

@@ -38,7 +38,7 @@ type NetworkProviderEntry struct {
 	// systemConfiguration holds the provider-specific NNC template for this provider.
 	//
 	// +required
-	SystemConfiguration *netv1alpha1.NamespaceNetworkConfig `json:"systemConfiguration,omitempty"`
+	SystemConfiguration netv1alpha1.NamespaceNetworkConfig `json:"systemConfiguration,omitempty,omitzero"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.providers.exists(p, p.type == self.activeSystemProvider)",message="activeSystemProvider must reference a provider type declared in providers"
@@ -95,7 +95,7 @@ type WorkloadNetworkConfiguration struct {
 	// spec defines the desired state of this WorkloadNetworkConfiguration.
 	//
 	// +required
-	Spec WorkloadNetworkConfigurationSpec `json:"spec,omitempty,omitzero"`
+	Spec WorkloadNetworkConfigurationSpec `json:"spec,omitzero"`
 
 	// status describes the observed state of this WorkloadNetworkConfiguration.
 	//

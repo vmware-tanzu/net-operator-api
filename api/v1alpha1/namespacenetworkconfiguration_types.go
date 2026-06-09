@@ -192,6 +192,7 @@ type AutoCreateVPCConfig struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:items:MaxLength=64
+	// +kubebuilder:validation:items:Pattern=`^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`
 	// +listType=atomic
 	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
 }
@@ -269,7 +270,7 @@ type VPCConfig struct {
 //
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc'",message="only vsphere-distributed and vpc are currently supported; nsx-tier1 will be introduced in a future version"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' ? (has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0) : true",message="vsphereDistributedConfig.networks must contain at least one entry when type is vsphere-distributed"
-// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? (has(self.vpcConfig) && (self.vpcConfig.vpc != '' || has(self.vpcConfig.autoCreateConfig))) : true",message="vpcConfig must have either vpc (pre-created VPC mode) or autoCreateConfig (auto-create VPC mode) set when type is vpc"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? (has(self.vpcConfig) && ((has(self.vpcConfig.vpc) && self.vpcConfig.vpc != '') || has(self.vpcConfig.autoCreateConfig))) : true",message="vpcConfig must have either vpc (pre-created VPC mode) or autoCreateConfig (auto-create VPC mode) set when type is vpc"
 // +kubebuilder:validation:XValidation:rule="!(has(self.vsphereDistributedConfig) && has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0 && has(self.vpcConfig) && ((has(self.vpcConfig.vpc) && self.vpcConfig.vpc != '') || has(self.vpcConfig.autoCreateConfig)))",message="vsphereDistributedConfig and vpcConfig are mutually exclusive; only the config section matching the selected type may be populated"
 type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines

@@ -177,7 +177,7 @@ type NamespaceNetworkStatus struct {
 // resources into associated Namespaces, and creates a NetworkSettings CR in each
 // Namespace to expose the active provider to network-aware operators.
 //
-// Deletion is blocked by the netoperator.vmware.com/nnc-protection  finalizer
+// Deletion is blocked by the netoperator.vmware.com/nnc-protection finalizer
 // while any Namespace holds the netoperator.vmware.com/network-configuration
 // label pointing to this resource.
 //

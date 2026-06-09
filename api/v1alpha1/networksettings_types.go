@@ -11,6 +11,7 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:validation:XValidation:rule="!has(self.legacyProvider) || self.legacyProvider != self.provider",message="legacyProvider must differ from provider"
 //
 // NetworkSettings exposes information about the effective network configuration for a namespace.
 // This is observed, realized state, and its contents may be updated by further network configuration
@@ -29,6 +30,18 @@ type NetworkSettings struct {
 	//
 	// +required
 	Provider NetworkProvider `json:"provider,omitempty"`
+
+	// legacyProvider is the network provider to which this namespace was previously affined.
+	// When set, the namespace has transitioned from legacyProvider to the current provider.
+	// APIs and resources associated with legacyProvider remain functional within this namespace
+	// but are no longer the governing provider; new network resources will be created under
+	// the current provider's APIs.
+	//
+	// This field is absent when the namespace has never undergone a provider transition.
+	//
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self in ['vsphere-distributed', 'nsx-tier1']",message="legacyProvider must be vsphere-distributed or nsx-tier1"
+	LegacyProvider NetworkProvider `json:"legacyProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

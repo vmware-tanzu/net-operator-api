@@ -7,13 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EndPointURL is a non-empty URL string for an HAProxy DataPlane API server
-// of the form https://hostname:port/v2.
-//
-// +kubebuilder:validation:MinLength=1
-// +kubebuilder:validation:MaxLength=1024
-type EndPointURL string
-
 // HAProxyLoadBalancerConfigSpec defines the configuration for an HAProxyLoadBalancerConfig instance.
 // The spec is used to configure the HAProxyLoadBalancer instance to correctly route traffic to services.
 // This spec supports HAProxyLoadBalancerConfig Dataplane API 2.0+ sidecar
@@ -29,8 +22,10 @@ type HAProxyLoadBalancerConfigSpec struct {
 	// +listType=atomic
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=2048
 	// +required
-	EndPointURLs []EndPointURL `json:"endPointURLs"` //nolint:kubeapilinter // avoid 'omitempty' use on a required field.
+	EndPointURLs []string `json:"endPointURLs"` //nolint:kubeapilinter // avoid 'omitempty' use on a required field.
 
 	// ServerName is used to verify the hostname on the returned
 	// certificates. It is also included

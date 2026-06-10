@@ -432,7 +432,7 @@ func (in *HAProxyLoadBalancerConfigSpec) DeepCopyInto(out *HAProxyLoadBalancerCo
 	*out = *in
 	if in.EndPointURLs != nil {
 		in, out := &in.EndPointURLs, &out.EndPointURLs
-		*out = make([]EndPointURL, len(*in))
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 	out.CredentialSecretRef = in.CredentialSecretRef

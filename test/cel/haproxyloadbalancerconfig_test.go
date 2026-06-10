@@ -17,7 +17,7 @@ func validHAC(name string) *netv1alpha1.HAProxyLoadBalancerConfig {
 			Name: name,
 		},
 		Spec: netv1alpha1.HAProxyLoadBalancerConfigSpec{
-			EndPointURLs: []netv1alpha1.EndPointURL{"https://haproxy.example.com:5556/v2"},
+			EndPointURLs: []string{"https://haproxy.example.com:5556/v2"},
 			CredentialSecretRef: netv1alpha1.ClientSecretReference{
 				Name:      "hac-creds",
 				Namespace: "default",
@@ -37,7 +37,7 @@ func TestHAProxyLoadBalancerConfig_Valid_Admitted(t *testing.T) {
 func TestHAProxyLoadBalancerConfig_EmptyEndPointURLs_Rejected(t *testing.T) {
 	obj := validHAC("hac-empty-urls")
 	// MinItems=1 on spec.endPointURLs must reject an empty list.
-	obj.Spec.EndPointURLs = []netv1alpha1.EndPointURL{}
+	obj.Spec.EndPointURLs = []string{}
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
 		t.Fatalf("expected rejection for empty endPointURLs (MinItems=1), got: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestHAProxyLoadBalancerConfig_EmptyEndPointURLs_Rejected(t *testing.T) {
 func TestHAProxyLoadBalancerConfig_EmptyItemInEndPointURLs_Rejected(t *testing.T) {
 	obj := validHAC("hac-empty-item")
 	// MinLength=1 on each EndPointURL item must reject an empty string entry.
-	obj.Spec.EndPointURLs = []netv1alpha1.EndPointURL{""}
+	obj.Spec.EndPointURLs = []string{""}
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
 		t.Fatalf("expected rejection for empty string item in endPointURLs (MinLength=1), got: %v", err)
 	}

@@ -228,8 +228,8 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	// +kubebuilder:validation:items:MaxLength=64
 	VirtualServerSubnets []string `json:"virtualServerSubnets"`
 
-	// DNSServers is the list of servers used for DNS traffic.
-	// These servers must be reachable from the network configured
+	// DNSServers is the list of IP addresses of management nameservers.
+	// These nameservers must be reachable from the network configured
 	// for management traffic.
 	//
 	// +kubebuilder:default:={}

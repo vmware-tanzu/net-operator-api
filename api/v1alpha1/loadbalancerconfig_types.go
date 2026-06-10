@@ -91,6 +91,7 @@ const (
 //
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerRef) || self.providerRef == oldSelf.providerRef",message="spec.providerRef is immutable once set"
 // +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind == 'HAProxyLoadBalancerConfig') || self.type in ['nsx', 'nsx-registered-avi']",message="spec.providerRef.kind must match spec.type"
+// +kubebuilder:validation:XValidation:rule="self.type in ['foundation', 'avi', 'haproxy'] ? self.providerRef.name != '' : true",message="spec.providerRef.name must be non-empty for foundation, avi, and haproxy types"
 // +kubebuilder:validation:XValidation:rule="self.type in ['nsx', 'nsx-registered-avi'] ? (self.providerRef.apiGroup == '' && self.providerRef.kind == '' && self.providerRef.name == '') : true",message="spec.providerRef must be empty for nsx and nsx-registered-avi types"
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.

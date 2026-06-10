@@ -200,6 +200,14 @@ func TestLBC_HAProxyWithEmptyProviderRef_Rejected(t *testing.T) {
 	}
 }
 
+func TestLBC_AviWithEmptyProviderRefName_Rejected(t *testing.T) {
+	obj := lbcWithType("lbc-avi-empty-name", netv1alpha1.LoadBalancerConfigTypeAvi, "AviLoadBalancerConfig")
+	obj.Spec.ProviderRef.Name = ""
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for avi with empty providerRef.name, got: %v", err)
+	}
+}
+
 // --- providerRef must be zero for nsx / nsx-registered-avi ---
 
 func TestLBC_NSXWithProviderRef_Rejected(t *testing.T) {

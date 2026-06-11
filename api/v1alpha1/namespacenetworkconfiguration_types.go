@@ -85,6 +85,180 @@ type VSphereDistributedConfig struct {
 	DefaultNetwork string `json:"defaultNetwork,omitempty"`
 }
 
+// SharedSubnetDefault is a string enum used to mark a SharedSubnet as the
+// default network for a workload type. A nil or absent value means this Subnet
+// is not the default for that workload type.
+//
+// +kubebuilder:validation:Enum=True;False
+type SharedSubnetDefault string
+
+const (
+	SharedSubnetDefaultTrue  SharedSubnetDefault = "True"
+	SharedSubnetDefaultFalse SharedSubnetDefault = "False"
+)
+
+// SharedSubnet defines a pre-created Subnet to be associated with a Namespace.
+//
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.path) || self.path == oldSelf.path",message="path is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.name) || self.name == oldSelf.name",message="name is immutable once set"
+type SharedSubnet struct {
+	// path is the NSX policy path of the shared Subnet to be associated with
+	// this Namespace. This field is immutable once set.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	Path string `json:"path,omitempty"`
+
+	// name is the name of the Subnet CR for this shared Subnet.
+	// It uniquely identifies this entry in the sharedSubnets list and must be
+	// unique across all entries. This field is immutable.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name,omitempty"`
+
+	// podDefault indicates this Subnet is the default network for Pod workloads
+	// in this Namespace. At most one entry in sharedSubnets may be set to True.
+	// When unset, this Subnet is not a Pod default. When set to True, vpc must
+	// be set on the parent VPCConfig, as the Subnet must reside in the
+	// Namespace's VPC to support resources such as load balancer virtual
+	// services and static routes.
+	//
+	// If no shared Subnet has podDefault set to True and the Namespace VPC has
+	// sufficient PrivateTGW IP block space, Pods use Subnets generated from
+	// that block. Otherwise, Pods are not assigned a default network.
+	//
+	// +optional
+	PodDefault SharedSubnetDefault `json:"podDefault,omitempty"`
+
+	// vmDefault indicates this Subnet is the default network for VM workloads
+	// in this Namespace. At most one entry in sharedSubnets may be set to True.
+	// When unset, this Subnet is not a VM default. When set to True, vpc must
+	// be set on the parent VPCConfig, as the Subnet must reside in the
+	// Namespace's VPC to support resources such as load balancer virtual
+	// services and static routes.
+	//
+	// If no shared Subnet has vmDefault set to True and the Namespace VPC has
+	// sufficient privateCIDR space, VMs use Subnets generated from those CIDRs.
+	// Otherwise, there is no VM default network.
+	//
+	// +optional
+	VMDefault SharedSubnetDefault `json:"vmDefault,omitempty"`
+}
+
+// AutoCreateVPCConfig specifies the configuration used to automatically create
+// a namespace-scoped VPC.
+//
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.nsxProject) || self.nsxProject == oldSelf.nsxProject",message="nsxProject is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.vpcConnectivityProfile) || self.vpcConnectivityProfile == oldSelf.vpcConnectivityProfile",message="vpcConnectivityProfile is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.privateCIDRs) || oldSelf.privateCIDRs.all(cidr, self.privateCIDRs.exists(c, c == cidr))",message="privateCIDRs is append-only; existing entries cannot be removed"
+type AutoCreateVPCConfig struct {
+	// nsxProject is the NSX policy path of the Project the namespace is
+	// associated with. This field is immutable once set.
+	//
+	// NSX Projects provide multi-tenancy by partitioning networking and
+	// security configurations within a single NSX deployment.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	NSXProject string `json:"nsxProject,omitempty"`
+
+	// vpcConnectivityProfile is the NSX policy path of the VPC Connectivity
+	// Profile. This profile defines northbound connectivity configuration
+	// for VPCs including:
+	//   - Transit Gateway attachment
+	//   - External IP blocks (for public subnets and external IP bindings)
+	//   - Private Transit Gateway IP blocks (for inter-VPC communication)
+	//
+	// This field is immutable once set.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	VPCConnectivityProfile string `json:"vpcConnectivityProfile,omitempty"`
+
+	// privateCIDRs specifies CIDR blocks from which private Subnets are
+	// allocated for this namespace. These ranges should not overlap with:
+	//   - CIDRs in the VPC connectivity profile
+	//   - Kubernetes service CIDRs
+	//   - Other services running in the datacenter
+	//
+	// This field is append-only; existing entries may not be removed.
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:MaxLength=64
+	// +kubebuilder:validation:items:Pattern=`^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`
+	// +listType=atomic
+	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
+}
+
+// VPCConfig specifies the VPC network configuration for a namespace.
+//
+// There are two mutually exclusive modes:
+//
+//  1. Pre-created VPC mode: Set vpc to reference an existing VPC. Only
+//     defaultSubnetSize and sharedSubnets take effect alongside vpc.
+//
+//  2. Auto-create VPC mode: Set autoCreateConfig to have a VPC automatically
+//     created and scoped to this namespace.
+//
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:XValidation:rule="!(has(self.vpc) && self.vpc != '' && has(self.autoCreateConfig))",message="vpc and autoCreateConfig are mutually exclusive; set vpc for pre-created VPC mode or autoCreateConfig for auto-create VPC mode"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.vpc) || self.vpc == oldSelf.vpc",message="vpc is immutable once set"
+// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() <= 1",message="at most one sharedSubnet may have podDefault set to True"
+// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.vmDefault) && s.vmDefault == 'True').size() <= 1",message="at most one sharedSubnet may have vmDefault set to True"
+// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.podDefault) && s.podDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != '')",message="vpc must be set when any sharedSubnet has podDefault set to True"
+// +kubebuilder:validation:XValidation:rule="!has(self.sharedSubnets) || self.sharedSubnets.filter(s, has(s.vmDefault) && s.vmDefault == 'True').size() == 0 || (has(self.vpc) && self.vpc != '')",message="vpc must be set when any sharedSubnet has vmDefault set to True"
+type VPCConfig struct {
+	// vpc is the NSX policy path of an existing VPC the namespace is associated
+	// with. When set, the namespace uses this pre-created VPC and
+	// autoCreateConfig must not be set. This field is immutable once set.
+	//
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=2048
+	VPC string `json:"vpc,omitempty"`
+
+	// autoCreateConfig holds the configuration for automatically creating a
+	// namespace-scoped VPC. Mutually exclusive with vpc.
+	//
+	// +optional
+	AutoCreateConfig AutoCreateVPCConfig `json:"autoCreateConfig,omitempty,omitzero"`
+
+	// sharedSubnets lists pre-created Subnets to be associated with this
+	// Namespace. At most one entry may have podDefault set to True, and at
+	// most one entry may have vmDefault set to True. These constraints are
+	// enforced by validation rules; the API server will reject any update
+	// that sets podDefault or vmDefault to True on more than one entry.
+	//
+	// A Subnet that is currently in use cannot be removed. If all shared Subnets
+	// acting as a Pod or VM default are removed, the default network falls back
+	// to Subnets generated from the Namespace VPC's available address space. If
+	// no such space exists, the affected workload type is not assigned a default
+	// network.
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=32
+	// +listType=map
+	// +listMapKey=name
+	SharedSubnets []SharedSubnet `json:"sharedSubnets,omitempty"`
+
+	// defaultSubnetSize is the default size of Namespace Subnets, specified as
+	// the number of IP addresses. Must be a power of 2 (e.g. 16, 32, 64, 128).
+	// When not set, defaults to 32 (equivalent to a /27 subnet).
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65536
+	// +kubebuilder:validation:XValidation:rule="self == 0 || self in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]",message="defaultSubnetSize must be a power of 2 (e.g. 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)"
+	DefaultSubnetSize int32 `json:"defaultSubnetSize,omitempty"`
+}
+
 // NamespaceNetworkConfig holds the provider-specific fields that are shared
 // between NamespaceNetworkSpec and WorkloadNetworkConfiguration's per-provider
 // system templates. Adding new provider config fields here makes them
@@ -95,16 +269,27 @@ type NamespaceNetworkConfig struct {
 	//
 	// +optional
 	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
+
+	// vpcConfig contains the VPC network configuration.
+	// Required when type is vpc.
+	//
+	// +optional
+	VPCConfig VPCConfig `json:"vpcConfig,omitempty,omitzero"`
 }
 
 // NamespaceNetworkSpec defines the desired network configuration
 // for Namespaces associated with this NamespaceNetworkConfiguration.
 //
 // The type field selects the active network provider. For the vsphere-distributed
-// provider, vsphereDistributedConfig must be populated.
+// provider, vsphereDistributedConfig must be populated. For the vpc provider,
+// vpcConfig must be populated. Only the config section corresponding to the
+// selected type may be populated; setting both vsphereDistributedConfig and
+// vpcConfig is invalid and will be rejected by the API server.
 //
-// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed'",message="only vsphere-distributed is currently supported; nsx-tier1 and vpc will be introduced in a future version"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc'",message="only vsphere-distributed and vpc are currently supported; nsx-tier1 will be introduced in a future version"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' ? (has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0) : true",message="vsphereDistributedConfig.networks must contain at least one entry when type is vsphere-distributed"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? (has(self.vpcConfig) && ((has(self.vpcConfig.vpc) && self.vpcConfig.vpc != '') || has(self.vpcConfig.autoCreateConfig))) : true",message="vpcConfig must have either vpc (pre-created VPC mode) or autoCreateConfig (auto-create VPC mode) set when type is vpc"
+// +kubebuilder:validation:XValidation:rule="!(has(self.vsphereDistributedConfig) && has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0 && has(self.vpcConfig) && ((has(self.vpcConfig.vpc) && self.vpcConfig.vpc != '') || has(self.vpcConfig.autoCreateConfig)))",message="vsphereDistributedConfig and vpcConfig are mutually exclusive; only the config section matching the selected type may be populated"
 type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines
 	// which provider-specific config section must be populated.

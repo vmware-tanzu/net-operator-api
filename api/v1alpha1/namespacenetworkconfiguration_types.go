@@ -110,7 +110,7 @@ type SharedSubnet struct {
 	// +kubebuilder:validation:MaxLength=2048
 	Path string `json:"path,omitempty"`
 
-	// name is the name of the NSX Operator Subnet CR for this shared Subnet.
+	// name is the name of the Subnet CR for this shared Subnet.
 	// It uniquely identifies this entry in the sharedSubnets list and must be
 	// unique across all entries. This field is immutable.
 	//

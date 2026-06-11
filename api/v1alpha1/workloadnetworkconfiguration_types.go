@@ -5,8 +5,6 @@
 package v1alpha1
 
 import (
-	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,12 +31,12 @@ type NetworkProviderEntry struct {
 	// type identifies the network provider for this entry.
 	//
 	// +required
-	Type netv1alpha1.NetworkProvider `json:"type,omitempty"`
+	Type NetworkProvider `json:"type,omitempty"`
 
 	// systemConfiguration holds the provider-specific NNC template for this provider.
 	//
 	// +required
-	SystemConfiguration netv1alpha1.NamespaceNetworkConfig `json:"systemConfiguration,omitempty,omitzero"`
+	SystemConfiguration *NamespaceNetworkConfig `json:"systemConfiguration,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.providers.exists(p, p.type == self.activeSystemProvider)",message="activeSystemProvider must reference a provider type declared in providers"
@@ -60,7 +58,7 @@ type WorkloadNetworkConfigurationSpec struct {
 	// field triggers a transition of the system NNC to the newly active provider.
 	//
 	// +required
-	ActiveSystemProvider netv1alpha1.NetworkProvider `json:"activeSystemProvider,omitempty"`
+	ActiveSystemProvider NetworkProvider `json:"activeSystemProvider,omitempty"`
 }
 
 // WorkloadNetworkConfigurationStatus defines the observed state of the WorkloadNetworkConfiguration.

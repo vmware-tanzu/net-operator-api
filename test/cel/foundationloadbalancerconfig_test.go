@@ -278,23 +278,57 @@ func TestFoundationLoadBalancerConfig_NonEmptyNTPServer_Admitted(t *testing.T) {
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
-// TestFoundationLoadBalancerConfig_NoStoragePolicy_Admitted verifies that omitting storagePolicy
-// is valid; the supervisor control plane's storage policy is used as the default.
-func TestFoundationLoadBalancerConfig_NoStoragePolicy_Admitted(t *testing.T) {
+// TestFoundationLoadBalancerConfig_StoragePolicyZeroValue_Admitted verifies that a structured Go
+// client that sets StoragePolicy to its zero value ("") is admitted despite MinLength=1 being
+// present on the field. The field carries omitempty, so the Go JSON marshaler omits it from the
+// payload entirely — the API server never sees the empty string and MinLength=1 never fires.
+// MinLength=1 on an omitempty field is unreachable from a typed client: the marshaler swallows ""
+// before it reaches the wire.
+func TestFoundationLoadBalancerConfig_StoragePolicyZeroValue_Admitted(t *testing.T) {
 	ensureNamespace(t, flbcNS)
-	obj := validFLBC("flbc-no-storage-policy")
-	obj.Spec.DeploymentSpec.StoragePolicy = ""
+	obj := validFLBC("flbc-storage-zero")
+	obj.Spec.DeploymentSpec.StoragePolicy = "" // zero value — omitted from JSON by omitempty
 	if err := k8sClient.Create(testCtx, obj); err != nil {
-		t.Fatalf("expected admission without storagePolicy, got: %v", err)
+		t.Fatalf("expected admission for zero-value StoragePolicy (omitted by omitempty), got: %v", err)
 	}
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
-// TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected verifies that an explicitly empty
-// storagePolicy string is rejected by MinLength=1.  Because the Go struct field carries omitempty,
-// the Go JSON marshaler omits an empty StoragePolicy; we use an Unstructured object to bypass this
-// and send "storagePolicy": "" so the server's MinLength constraint is exercised directly.
-func TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected(t *testing.T) {
+// TestFoundationLoadBalancerConfig_StoragePolicyAbsent_Admitted verifies that a structured Go
+// client that never sets StoragePolicy is admitted despite MinLength=1 being present. This is
+// functionally identical to the zero-value test above: both produce a JSON payload with no
+// "storagePolicy" key, so MinLength=1 is never evaluated.
+func TestFoundationLoadBalancerConfig_StoragePolicyAbsent_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := &netv1alpha1.FoundationLoadBalancerConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "flbc-storage-absent", Namespace: flbcNS},
+		Spec: netv1alpha1.FoundationLoadBalancerConfigSpec{
+			DeploymentSpec: netv1alpha1.FoundationLoadBalancerDeploymentSpec{
+				Size:             netv1alpha1.FoundationLoadBalancerSizeSmall,
+				AvailabilityMode: netv1alpha1.FoundationAvailabilityModeActivePassive,
+				Zones:            []string{"zone-a"},
+				// StoragePolicy not set — omitted from JSON by omitempty.
+				ActivePassiveAvailabilityMode: &netv1alpha1.ActivePassiveAvailabilityMode{
+					Replicas: 2,
+				},
+			},
+			VirtualIPNetwork: netv1alpha1.NetworkReference{Name: "vip-net"},
+			NetworkSpec: netv1alpha1.FoundationLoadBalancerNetworkConfigSpec{
+				VirtualServerIPPools: []netv1alpha1.IPPoolReference{{Name: "pool-1"}},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for absent StoragePolicy, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+// TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected_ViaRawClient verifies that a raw
+// (Unstructured) client that bypasses omitempty and sends "storagePolicy": "" explicitly is
+// rejected by MinLength=1. This is the only code path that can reach the MinLength constraint:
+// a typed Go client can never produce this payload because omitempty drops "" before serialization.
+func TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected_ViaRawClient(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -314,9 +348,10 @@ func TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected(t *testing.T) 
 						"replicas": int64(2),
 					},
 				},
-				"virtualIPNetwork": map[string]interface{}{
-					"name": "vip-net",
-				},
+			"virtualIPNetwork": map[string]interface{}{
+				"kind": "Network",
+				"name": "vip-net",
+			},
 				"networkSpec": map[string]interface{}{
 					"virtualServerIPPools": []interface{}{
 						map[string]interface{}{"name": "pool-1"},
@@ -326,7 +361,7 @@ func TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected(t *testing.T) 
 		},
 	}
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
-		t.Fatalf("expected rejection for explicit empty storagePolicy, got: %v", err)
+		t.Fatalf("expected rejection for explicit empty storagePolicy (MinLength=1), got: %v", err)
 		_ = k8sClient.Delete(testCtx, obj)
 	}
 }

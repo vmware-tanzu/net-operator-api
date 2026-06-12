@@ -37,14 +37,15 @@ func TestAviLoadBalancerConfig_Valid_Admitted(t *testing.T) {
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
-// TestAviLoadBalancerConfig_EmptyServer_Rejected verifies that spec.server with MinLength=1 rejects
-// an empty string.  spec.server has no omitempty tag, so "" is sent literally.
+// TestAviLoadBalancerConfig_EmptyServer_Admitted verifies that API admits an empty Server string.
+// spec.server has no omitempty tag, so "" is sent even if field is unset by a structured/typed client.
 func TestAviLoadBalancerConfig_EmptyServer_Rejected(t *testing.T) {
 	obj := validAviLoadBalancerConfig("avic-empty-server")
 	obj.Spec.Server = ""
-	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
-		t.Fatalf("expected rejection for empty server, got: %v", err)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for empty server, got: %v", err)
 	}
+	_ = k8sClient.Delete(testCtx, obj)
 }
 
 // TestAviLoadBalancerConfig_OmittedCloudName_DefaultedOnReadback verifies that omitting cloudName

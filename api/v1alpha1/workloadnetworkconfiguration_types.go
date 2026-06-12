@@ -12,17 +12,30 @@ const (
 	// WorkloadNetworkConfigurationName is the singleton resource name.
 	WorkloadNetworkConfigurationName = "default"
 
-	// WorkloadNetworkConditionReady indicates whether the workload network
-	// configuration as a whole is ready.
+	// WorkloadNetworkConditionReady is the top-level aggregate condition.
+	// It is True when all sub-conditions are True, giving operators and tooling
+	// a single signal to wait on (e.g. kubectl wait --for=condition=Ready).
 	WorkloadNetworkConditionReady = "Ready"
 
 	// WorkloadNetworkConditionSystemReady indicates whether the system
-	// NNC derived from the active provider is ready.
+	// NamespaceNetworkConfiguration derived from the active provider has been
+	// successfully reconciled.
 	WorkloadNetworkConditionSystemReady = "SystemNetworkConfigurationReady"
+
+	// WorkloadNetworkReasonPending is set on a condition with status False when
+	// reconciliation has not yet completed (initial state or in progress).
+	WorkloadNetworkReasonPending = "Pending"
+
+	// WorkloadNetworkReasonFailed is set on a condition with status False when
+	// the controller encountered an error during reconciliation.
+	WorkloadNetworkReasonFailed = "Failed"
 )
 
+// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc'",message="only vsphere-distributed and vpc are currently supported; nsx-tier1 will be introduced in a future version"
 // +kubebuilder:validation:XValidation:rule="self.type != 'vsphere-distributed' || has(self.systemConfiguration.vsphereDistributedConfig)",message="systemConfiguration.vsphereDistributedConfig must be set when type is vsphere-distributed"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.systemConfiguration.vsphereDistributedConfig)",message="systemConfiguration.vsphereDistributedConfig may only be set when type is vsphere-distributed"
+// +kubebuilder:validation:XValidation:rule="self.type != 'vpc' || has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig must be set when type is vpc"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig may only be set when type is vpc"
 
 // NetworkProviderEntry pairs a network provider type with its system-level
 // NamespaceNetworkConfiguration template. Exactly one entry per type is allowed

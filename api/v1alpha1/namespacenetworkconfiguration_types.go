@@ -259,6 +259,24 @@ type VPCConfig struct {
 	DefaultSubnetSize int32 `json:"defaultSubnetSize,omitempty"`
 }
 
+// NamespaceNetworkConfig holds the provider-specific fields that are shared
+// between NamespaceNetworkSpec and WorkloadNetworkConfiguration's per-provider
+// system templates. Adding new provider config fields here makes them
+// automatically available in both APIs.
+type NamespaceNetworkConfig struct {
+	// vsphereDistributedConfig contains the vSphere Distributed (VDS) network
+	// configuration. Required when type is vsphere-distributed.
+	//
+	// +optional
+	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
+
+	// vpcConfig contains the VPC network configuration.
+	// Required when type is vpc.
+	//
+	// +optional
+	VPCConfig VPCConfig `json:"vpcConfig,omitempty,omitzero"`
+}
+
 // NamespaceNetworkSpec defines the desired network configuration
 // for Namespaces associated with this NamespaceNetworkConfiguration.
 //
@@ -279,21 +297,7 @@ type NamespaceNetworkSpec struct {
 	// +required
 	Type NetworkProvider `json:"type,omitempty"`
 
-	// vsphereDistributedConfig contains the vSphere Distributed (VDS) network
-	// configuration. Required when type is vsphere-distributed.
-	//
-	// +optional
-	VSphereDistributedConfig VSphereDistributedConfig `json:"vsphereDistributedConfig,omitempty,omitzero"`
-
-	// vpcConfig contains the VPC network configuration.
-	// Required when type is vpc.
-	//
-	// When specified, network configuration is delegated to NSX Operator,
-	// which constructs a VPCNetworkConfiguration from this spec and utilizes
-	// the NSX Operator APIs to provision and manage the Namespace's VPC resources.
-	//
-	// +optional
-	VPCConfig VPCConfig `json:"vpcConfig,omitempty,omitzero"`
+	NamespaceNetworkConfig `json:",inline"`
 }
 
 // NamespaceNetworkAssociation describes the reconciliation state of a

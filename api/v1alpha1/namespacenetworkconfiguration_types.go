@@ -298,7 +298,6 @@ const (
 // In override mode, Net Operator translates these settings to a cluster-scoped NSXNetworkConfiguration CR.
 // For details on the underlying operator, see https://github.com/vmware/nsx-container-plugin-operator.
 //
-// +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:XValidation:rule="!has(self.routingMode) || self.routingMode != 'Routed' || !has(self.egressCIDRs) || self.egressCIDRs.size() == 0",message="egressCIDRs must not be set when routingMode is Routed"
 // +kubebuilder:validation:XValidation:rule="!((has(self.tier0Gateway) && self.tier0Gateway != '') || (has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0) || (has(self.egressCIDRs) && self.egressCIDRs.size() > 0)) || (has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0)",message="namespaceCIDRs must be set when tier0Gateway, ingressCIDRs, or egressCIDRs are specified"
 // +kubebuilder:validation:XValidation:rule="!((has(self.tier0Gateway) && self.tier0Gateway != '') || (has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0) || (has(self.egressCIDRs) && self.egressCIDRs.size() > 0)) || (has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0)",message="ingressCIDRs must be set when tier0Gateway, namespaceCIDRs, or egressCIDRs are specified"
@@ -410,7 +409,7 @@ type NamespaceNetworkConfig struct {
 	// For details on the underlying operator, see https://github.com/vmware/nsx-container-plugin-operator.
 	//
 	// +optional
-	NSXTier1Config NSXTier1Config `json:"nsxTier1Config,omitempty,omitzero"`
+	NSXTier1Config *NSXTier1Config `json:"nsxTier1Config,omitempty,omitzero"`
 }
 
 // NamespaceNetworkSpec defines the desired network configuration

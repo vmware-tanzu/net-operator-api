@@ -3,8 +3,9 @@ module github.com/vmware-tanzu/net-operator-api/hack/tools
 go 1.24.0
 
 require (
-	k8s.io/code-generator v0.29.0
-	sigs.k8s.io/controller-tools v0.14.0
+	k8s.io/code-generator v0.30.0
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20230620070423-a784ee78d04b
+	sigs.k8s.io/controller-tools v0.15.0
 	sigs.k8s.io/kube-api-linter v0.0.0-20260423112246-3fa174937a6b
 )
 
@@ -61,7 +62,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denis-tingaikin/go-header v0.5.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
-	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
@@ -72,6 +72,7 @@ require (
 	github.com/ghostiam/protogetter v0.3.16 // indirect
 	github.com/go-critic/go-critic v0.13.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
+	github.com/go-logr/zapr v1.2.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
@@ -231,10 +232,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.6.1 // indirect
-	k8s.io/api v0.29.0 // indirect
-	k8s.io/apiextensions-apiserver v0.29.0 // indirect
+	k8s.io/api v0.30.0 // indirect
+	k8s.io/apiextensions-apiserver v0.30.0 // indirect
 	k8s.io/apimachinery v0.32.3 // indirect
-	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect

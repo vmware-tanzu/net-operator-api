@@ -41,7 +41,11 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	Size FoundationLoadBalancerSize `json:"size"`
 
 	// StoragePolicy is a vSphere Storage Policy ID which defines node storage placement.
-	StoragePolicy string `json:"storagePolicy"`
+	// If unset, it will be defaulted to the Supervisor Control Plane's Storage Policy.
+	//
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	StoragePolicy string `json:"storagePolicy,omitempty"`
 
 	// Version number desired by the operator.
 	//
@@ -52,7 +56,12 @@ type FoundationLoadBalancerDeploymentSpec struct {
 
 	// Zones contains the names of zones eligible for placing nodes. Zones must be one of the
 	// AvailabilityZones defined and eligible for placement on the cluster.
-	Zones []string `json:"zones"`
+	// When empty, all supervisor zones are eligible.
+	//
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=256
+	Zones []string `json:"zones,omitempty"`
 
 	// AvailabilityMode defines how the availability of the solution is deployed and configured.
 	// +kubebuilder:validation:Enum=active-passive;single-node
@@ -147,6 +156,14 @@ type FoundationLoadBalancerConfigStatus struct {
 	//
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// EffectiveVirtualServerIPPools is the union of explicitly referenced pools
+	// (spec.networkSpec.virtualServerIPPools) and controller-managed pools derived
+	// from spec.networkSpec.virtualServerIPRanges, as of the last successful reconcile.
+	//
+	// +optional
+	// +listType=atomic
+	EffectiveVirtualServerIPPools []string `json:"effectiveVirtualServerIPPools,omitempty"`
 }
 
 // VirtualIPPoolsUtilization defines the IP addresses utilization for virtual IPPools resource.
@@ -164,6 +181,9 @@ type VirtualIPPoolsUtilization struct {
 
 // FoundationLoadBalancerConfigSpec defines the configuration for a vSphere Foundation Load Balancer.
 // This specification is used to configure the resources for the load balancer on vCenter Server.
+//
+// +kubebuilder:validation:XValidation:rule="!(oldSelf.deploymentSpec.availabilityMode == 'active-passive' && self.deploymentSpec.availabilityMode == 'single-node')",message="cannot downgrade from active-passive to single-node"
+// +kubebuilder:validation:XValidation:rule="!(has(self.deploymentSpec.singleNodeSpec) && has(self.deploymentSpec.activePassiveSpec))",message="singleNodeSpec and activePassiveSpec are mutually exclusive"
 type FoundationLoadBalancerConfigSpec struct {
 	// DeploymentSpec describes sizing and placement constraints of the load balancer.
 	DeploymentSpec FoundationLoadBalancerDeploymentSpec `json:"deploymentSpec"`
@@ -194,10 +214,24 @@ type FoundationLoadBalancerConfigSpec struct {
 }
 
 // FoundationLoadBalancerNetworkConfigSpec contains values for configuring networks on the load balancer.
+//
+// +kubebuilder:validation:XValidation:rule="(has(self.virtualServerIPPools) && size(self.virtualServerIPPools) > 0) || (has(self.virtualServerIPRanges) && size(self.virtualServerIPRanges) > 0)",message="at least one of virtualServerIPPools or virtualServerIPRanges must be non-empty"
 type FoundationLoadBalancerNetworkConfigSpec struct {
 	// VirtualServerIPPools are the list of IPPools that are
 	// used for load balancer IP addresses.
-	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools"`
+	//
+	// +optional
+	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools,omitempty"`
+
+	// VirtualServerIPRanges are IP ranges from which Virtual Server IPs are allocated.
+	// The FLBC controller creates and manages IPPool CRs for each entry.
+	// The effective set of VIP pools is the union of VirtualServerIPPools (explicit references)
+	// and pools derived from VirtualServerIPRanges (controller-managed).
+	//
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=256
+	VirtualServerIPRanges []IPRange `json:"virtualServerIPRanges,omitempty"`
 
 	// VirtualServerSubnets are the list of subnets specified in CIDR notation
 	// that are directly connected to the VirtualIPNetwork.
@@ -206,6 +240,7 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	// or one of these subnets.
 	//
 	// +kubebuilder:default:={}
+	// +listType=set
 	// +optional
 	VirtualServerSubnets []string `json:"virtualServerSubnets"`
 

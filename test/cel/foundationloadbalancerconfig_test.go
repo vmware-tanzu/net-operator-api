@@ -5,6 +5,7 @@
 package cel_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -373,7 +374,8 @@ func TestFoundationLoadBalancerConfig_IPRangeTooManyRanges_Rejected(t *testing.T
 	obj.Spec.NetworkSpec.VirtualServerIPPools = nil
 	ranges := make([]netv1alpha1.IPRange, 257)
 	for i := range ranges {
-		ranges[i] = netv1alpha1.IPRange{StartingAddress: "10.0.0.1", AddressCount: 1}
+		// 10.0.0.0–10.0.0.255 then 10.0.1.0 — 257 unique IPv4 starting addresses.
+		ranges[i] = netv1alpha1.IPRange{StartingAddress: fmt.Sprintf("10.0.%d.%d", i/256, i%256), AddressCount: 1}
 	}
 	obj.Spec.NetworkSpec.VirtualServerIPRanges = ranges
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
@@ -389,11 +391,29 @@ func TestFoundationLoadBalancerConfig_IPRangeExactly256_Admitted(t *testing.T) {
 	obj.Spec.NetworkSpec.VirtualServerIPPools = nil
 	ranges := make([]netv1alpha1.IPRange, 256)
 	for i := range ranges {
-		ranges[i] = netv1alpha1.IPRange{StartingAddress: "10.0.0.1", AddressCount: 1}
+		// 10.0.0.0 through 10.0.0.255 — 256 unique IPv4 starting addresses.
+		ranges[i] = netv1alpha1.IPRange{StartingAddress: fmt.Sprintf("10.0.0.%d", i), AddressCount: 1}
 	}
 	obj.Spec.NetworkSpec.VirtualServerIPRanges = ranges
 	if err := k8sClient.Create(testCtx, obj); err != nil {
 		t.Fatalf("expected admission for exactly 256 IP ranges, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+// TestFoundationLoadBalancerConfig_IPRangeNonOverlapping_Admitted verifies that two IPRange
+// entries with distinct, non-overlapping addresses are admitted. Overlap and uniqueness
+// validation is handled by the FLBC admission webhook (story #20), not the CRD schema.
+func TestFoundationLoadBalancerConfig_IPRangeNonOverlapping_Admitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-ranges-nooverlap")
+	obj.Spec.NetworkSpec.VirtualServerIPPools = nil
+	obj.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.0.0.1", AddressCount: 4},
+		{StartingAddress: "10.0.1.1", AddressCount: 4},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for non-overlapping virtualServerIPRanges, got: %v", err)
 	}
 	_ = k8sClient.Delete(testCtx, obj)
 }

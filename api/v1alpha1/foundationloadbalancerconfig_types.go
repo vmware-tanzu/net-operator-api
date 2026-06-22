@@ -226,7 +226,10 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	// VirtualServerIPRanges are IP ranges from which Virtual Server IPs are allocated.
 	// The FLBC controller creates and manages IPPool CRs for each entry.
 	// The effective set of VIP pools is the union of VirtualServerIPPools (explicit references)
-	// and pools derived from VirtualServerIPRanges (controller-managed).
+	// and pools derived from this field.
+	//
+	// Virtual Server IP Ranges specified across this field as well as VirtualServerIPPools must
+	// not overlap.
 	//
 	// +optional
 	// +listType=atomic

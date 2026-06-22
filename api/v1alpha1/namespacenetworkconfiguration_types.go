@@ -293,8 +293,10 @@ const (
 // NSXTier1Config specifies the NSX Tier-1 override configuration for a namespace.
 //
 // When this field is absent on the parent NamespaceNetworkSpec, the namespace
-// inherits the cluster-level NCP defaults (inherit mode). When present, the
-// fields here override those defaults for this namespace (override mode).
+// inherits the cluster-level defaults from the NSX Container Plugin (NCP) in inherit mode.
+// When present, the fields here override those defaults for this namespace in override mode.
+// In override mode, Net Operator translates these settings to a cluster-scoped NSXNetworkConfiguration CR.
+// For details on the underlying operator, see https://github.com/vmware/nsx-container-plugin-operator.
 //
 // +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:XValidation:rule="!has(self.routingMode) || self.routingMode != 'Routed' || !has(self.egressCIDRs) || self.egressCIDRs.size() == 0",message="egressCIDRs must not be set when routingMode is Routed"
@@ -348,8 +350,9 @@ type NSXTier1Config struct {
 	EgressCIDRs []string `json:"egressCIDRs,omitempty"`
 
 	// tier0Gateway is the NSX policy path of the Tier-0 Gateway used for this
-	// namespace. When unset, the cluster-level Tier-0 Gateway from the NCP
-	// configuration is applied. This field is immutable once set.
+	// namespace. When unset, the cluster-level Tier-0 Gateway from the global NSX Container Plugin (NCP)
+	// configuration is applied. Leaving this field unset allows partial overrides of other parameters.
+	// This field is immutable once set.
 	//
 	// +optional
 	// +kubebuilder:validation:MinLength=1
@@ -358,7 +361,8 @@ type NSXTier1Config struct {
 
 	// subnetPrefixLength is the prefix length of subnets reserved for namespace
 	// segments (e.g. 28 for a /28 subnet). When unset, the cluster-level
-	// default from the NCP configuration is applied.
+	// default from the global NSX Container Plugin (NCP) configuration is applied.
+	// Leaving this field unset allows partial overrides of other parameters.
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=1
@@ -367,14 +371,15 @@ type NSXTier1Config struct {
 
 	// routingMode specifies whether traffic leaving the namespace is NATed.
 	// When set to Routed, egressCIDRs must not be specified. When unset,
-	// defaults to NAT at the NCP cluster level. This field is immutable once set.
+	// defaults to NAT programmatically at the global NSX Container Plugin (NCP) cluster level.
+	// This field is immutable once set.
 	//
 	// +optional
 	RoutingMode NSXTier1RoutingMode `json:"routingMode,omitempty"`
 
 	// loadBalancerSize specifies the size of the NSX Load Balancer provisioned
-	// for this namespace. When unset, defaults to Small. This field is immutable
-	// once set.
+	// for this namespace. When unset, defaults programmatically to Small.
+	// This field is immutable once set.
 	//
 	// +optional
 	LoadBalancerSize NSXLoadBalancerSize `json:"loadBalancerSize,omitempty"`
@@ -399,8 +404,10 @@ type NamespaceNetworkConfig struct {
 
 	// nsxTier1Config contains the NSX Tier-1 override configuration.
 	// Applicable when type is nsx-tier1. When absent, the namespace inherits
-	// the cluster-level NCP configuration. When present, the fields here
-	// override those cluster-level defaults for this namespace.
+	// the cluster-level NSX Container Plugin (NCP) configuration in inherit mode. When present,
+	// the fields here override those cluster-level defaults for this namespace in override mode.
+	// In override mode, Net Operator translates these settings to a cluster-scoped NSXNetworkConfiguration CR.
+	// For details on the underlying operator, see https://github.com/vmware/nsx-container-plugin-operator.
 	//
 	// +optional
 	NSXTier1Config NSXTier1Config `json:"nsxTier1Config,omitempty,omitzero"`

@@ -43,7 +43,7 @@ func validFLBC(name string) *netv1alpha1.FoundationLoadBalancerConfig {
 	}
 }
 
-// --- Story 15: availability mode, zones, DNS/NTP, storage policy ---
+// --- availability mode, zones, DNS/NTP, storage policy ---
 
 func TestFoundationLoadBalancerConfig_InvalidAvailabilityMode_Rejected(t *testing.T) {
 	ensureNamespace(t, flbcNS)
@@ -135,16 +135,14 @@ func TestFoundationLoadBalancerConfig_ZonesAtMaxCount_Admitted(t *testing.T) {
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
-// TestFoundationLoadBalancerConfig_LongZoneName_Admitted verifies that zone names longer than 253
-// characters are admitted.  The items:MaxLength=253 marker was intentionally omitted from the Zones
-// field because controller-gen v0.14 silently suppresses +listType=atomic when any items: marker
-// is present on the same field.  Per-item length validation is deferred to the FLBC webhook (#20).
-func TestFoundationLoadBalancerConfig_LongZoneName_Admitted(t *testing.T) {
+// TestFoundationLoadBalancerConfig_LongZoneName_Rejected verifies that zone names longer than 253
+// characters are rejected. Per-item length validation is deferred to the FLBC webhook.
+func TestFoundationLoadBalancerConfig_LongZoneName_Rejected(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-zone-long")
 	obj.Spec.DeploymentSpec.Zones = []string{strings.Repeat("z", 254)}
-	if err := k8sClient.Create(testCtx, obj); err != nil {
-		t.Fatalf("expected admission for long zone name (no items:MaxLength in CRD), got: %v", err)
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for long zone name (no items:MaxLength in CRD), got: %v", err)
 	}
 	_ = k8sClient.Delete(testCtx, obj)
 }
@@ -267,7 +265,7 @@ func TestFoundationLoadBalancerConfig_EmptyStoragePolicy_Rejected_ViaRawClient(t
 	}
 }
 
-// --- Story 33: VirtualServerIPRanges + relaxed VirtualServerIPPools ---
+// --- VirtualServerIPRanges + relaxed VirtualServerIPPools ---
 
 // TestFoundationLoadBalancerConfig_VirtualServerIPRangesOnly_Admitted verifies that an FLBC with
 // only virtualServerIPRanges set (no virtualServerIPPools) satisfies the at-least-one XValidation.
@@ -313,7 +311,7 @@ func TestFoundationLoadBalancerConfig_NeitherIPRangesNorIPPools_Rejected(t *test
 
 // TestFoundationLoadBalancerConfig_EmptyVirtualServerIPPools_Rejected verifies that setting
 // virtualServerIPPools to an empty slice (with no ranges) triggers the at-least-one XValidation.
-// The at-least-one rule replaced the old required+minItems:1 constraint (Story 33).
+// The at-least-one rule replaced the old required+minItems:1 constraint.
 func TestFoundationLoadBalancerConfig_EmptyVirtualServerIPPools_Rejected(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-empty-pools")
@@ -403,7 +401,7 @@ func TestFoundationLoadBalancerConfig_IPRangeExactly256_Admitted(t *testing.T) {
 
 // TestFoundationLoadBalancerConfig_IPRangeNonOverlapping_Admitted verifies that two IPRange
 // entries with distinct, non-overlapping addresses are admitted. Overlap and uniqueness
-// validation is handled by the FLBC admission webhook (story #20), not the CRD schema.
+// validation is handled by the FLBC admission webhook, not the CRD schema.
 func TestFoundationLoadBalancerConfig_IPRangeNonOverlapping_Admitted(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-ranges-nooverlap")
@@ -418,7 +416,7 @@ func TestFoundationLoadBalancerConfig_IPRangeNonOverlapping_Admitted(t *testing.
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
-// --- Story 37: EffectiveVirtualServerIPPools status field ---
+// --- EffectiveVirtualServerIPPools status field ---
 
 // TestFoundationLoadBalancerConfig_EffectiveVirtualServerIPPools_StatusRoundtrip verifies that the
 // effectiveVirtualServerIPPools status field can be written via the status subresource and read

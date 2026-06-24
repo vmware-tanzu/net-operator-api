@@ -33,8 +33,8 @@ MANIFEST_ROOT ?= config
 CRD_ROOT      ?= $(MANIFEST_ROOT)/crd/bases
 
 # Kubernetes version for envtest assets (kube-apiserver + etcd).
-# CEL / x-kubernetes-validations require v1.25+; v1.30 is recommended.
-ENVTEST_K8S_VERSION ?= 1.30.0
+# CEL / x-kubernetes-validations require v1.25+; isIP()/isCIDR() require v1.31+.
+ENVTEST_K8S_VERSION ?= 1.32.0
 
 # envtest binary paths (populated by the k8s-envtest target in hack/tools/Makefile).
 KUBE_APISERVER := $(TOOLS_BIN_DIR)/kube-apiserver
@@ -114,7 +114,7 @@ $(KUBE_APISERVER) $(ETCD):
 test: test-cel ## Run all tests.
 
 .PHONY: test-cel
-test-cel: generate-manifests $(KUBE_APISERVER) $(ETCD) ## Run CEL envtest integration tests (downloads kube-apiserver+etcd v1.30 on first run)
+test-cel: generate-manifests $(KUBE_APISERVER) $(ETCD) ## Run CEL envtest integration tests (uses kube-apiserver+etcd from ENVTEST_K8S_VERSION)
 	cd test/cel && go test -v ./... -count=1 -timeout 120s 
 
 ## --------------------------------------

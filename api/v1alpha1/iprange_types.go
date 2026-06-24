@@ -4,15 +4,21 @@
 
 package v1alpha1
 
-// IPRange defines a contiguous block of IPv4 addresses.
+// IPRange defines a contiguous block of IP addresses.
+//
+// +kubebuilder:validation:XValidation:rule="self.addressCount >= 1",message="addressCount must be at least 1"
 type IPRange struct {
-	// StartingAddress is the first IPv4 address of the range.
+	// startingAddress is the first IP address of the range. Accepts both IPv4 and IPv6 addresses.
 	//
-	// +kubebuilder:validation:Format=ipv4
-	StartingAddress string `json:"startingAddress"`
+	// +required
+	// +kubebuilder:validation:MinLength=3
+	// +kubebuilder:validation:MaxLength=39
+	// +kubebuilder:validation:XValidation:rule="isIP(self)",message="startingAddress must be a valid IPv4 or IPv6 address"
+	StartingAddress string `json:"startingAddress,omitempty"`
 
-	// AddressCount is the number of IPv4 addresses in the range.
+	// addressCount is the number of IP addresses in the range.
 	//
+	// +required
 	// +kubebuilder:validation:Minimum=1
-	AddressCount int64 `json:"addressCount"`
+	AddressCount int64 `json:"addressCount,omitempty"`
 }

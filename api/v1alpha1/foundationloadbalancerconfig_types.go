@@ -45,6 +45,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
 	StoragePolicy string `json:"storagePolicy,omitempty"`
 
 	// Version number desired by the operator.
@@ -61,6 +62,7 @@ type FoundationLoadBalancerDeploymentSpec struct {
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=256
+	// +kubebuilder:validation:items:MaxLength=253
 	Zones []string `json:"zones,omitempty"`
 
 	// AvailabilityMode defines how the availability of the solution is deployed and configured.
@@ -157,12 +159,14 @@ type FoundationLoadBalancerConfigStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// EffectiveVirtualServerIPPools is the union of explicitly referenced pools
+	// effectiveVirtualServerIPPools is the union of explicitly referenced pools
 	// (spec.networkSpec.virtualServerIPPools) and controller-managed pools derived
 	// from spec.networkSpec.virtualServerIPRanges, as of the last successful reconcile.
 	//
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=1024
+	// +kubebuilder:validation:items:MaxLength=253
 	EffectiveVirtualServerIPPools []string `json:"effectiveVirtualServerIPPools,omitempty"`
 }
 
@@ -217,19 +221,27 @@ type FoundationLoadBalancerConfigSpec struct {
 //
 // +kubebuilder:validation:XValidation:rule="(has(self.virtualServerIPPools) && size(self.virtualServerIPPools) > 0) || (has(self.virtualServerIPRanges) && size(self.virtualServerIPRanges) > 0)",message="at least one of virtualServerIPPools or virtualServerIPRanges must be non-empty"
 type FoundationLoadBalancerNetworkConfigSpec struct {
-	// VirtualServerIPPools are the list of IPPools that are
-	// used for load balancer IP addresses.
+	// virtualServerIPPools are the list of IPPools that are used for load balancer IP addresses.
+	// The effective set of VIP Pools used by Foundation LoadBalancer instance is the union of
+	// VirtualServerIPPools (explicit references) and pools derived from VirtualServerIPRanges.
+	//
+	// Virtual Server IP Ranges specified across this field as well as VirtualServerIPRanges must
+	// not overlap.
+	// At least one of VirtualServerIPPools or VirtualServerIPRanges must be non-empty.
 	//
 	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=1024
 	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools,omitempty"`
 
-	// VirtualServerIPRanges are IP ranges from which Virtual Server IPs are allocated.
+	// virtualServerIPRanges are IP ranges from which Virtual Server IPs are allocated.
 	// The FLBC controller creates and manages IPPool CRs for each entry.
 	// The effective set of VIP pools is the union of VirtualServerIPPools (explicit references)
 	// and pools derived from this field.
 	//
 	// Virtual Server IP Ranges specified across this field as well as VirtualServerIPPools must
 	// not overlap.
+	// At least one of VirtualServerIPPools or VirtualServerIPRanges must be non-empty.
 	//
 	// +optional
 	// +listType=atomic

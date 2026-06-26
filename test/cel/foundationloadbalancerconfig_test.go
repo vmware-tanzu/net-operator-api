@@ -282,18 +282,18 @@ func TestFoundationLoadBalancerConfig_VirtualServerIPRangesOnly_Admitted(t *test
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
-// TestFoundationLoadBalancerConfig_BothIPRangesAndIPPools_Admitted verifies that providing both
-// fields together is valid.
-func TestFoundationLoadBalancerConfig_BothIPRangesAndIPPools_Admitted(t *testing.T) {
+// TestFoundationLoadBalancerConfig_BothIPRangesAndIPPools_Rejected verifies that providing both
+// fields together is rejected by the mutual-exclusivity XValidation rule.
+func TestFoundationLoadBalancerConfig_BothIPRangesAndIPPools_Rejected(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-ranges-and-pools")
 	obj.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
 		{StartingAddress: "10.0.1.0", AddressCount: 32},
 	}
-	if err := k8sClient.Create(testCtx, obj); err != nil {
-		t.Fatalf("expected admission with both fields set, got: %v", err)
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection when both virtualServerIPPools and virtualServerIPRanges set, got: %v", err)
+		_ = k8sClient.Delete(testCtx, obj)
 	}
-	_ = k8sClient.Delete(testCtx, obj)
 }
 
 // TestFoundationLoadBalancerConfig_NeitherIPRangesNorIPPools_Rejected verifies that the at-least-one
@@ -318,6 +318,28 @@ func TestFoundationLoadBalancerConfig_EmptyVirtualServerIPPools_Rejected(t *test
 	obj.Spec.NetworkSpec.VirtualServerIPPools = []netv1alpha1.IPPoolReference{}
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
 		t.Fatalf("expected rejection when virtualServerIPPools empty and ranges absent, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_BothIPRangesAndIPPools_UpdateRejected verifies that adding
+// virtualServerIPRanges to an existing FLBC that already has virtualServerIPPools is rejected.
+func TestFoundationLoadBalancerConfig_BothIPRangesAndIPPools_UpdateRejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-ranges-and-pools-update")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.FoundationLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.0.1.0", AddressCount: 32},
+	}
+	if err := k8sClient.Update(testCtx, latest); !isRejected(err) {
+		t.Fatalf("expected rejection when adding virtualServerIPRanges to an FLBC with existing virtualServerIPPools, got: %v", err)
 	}
 }
 

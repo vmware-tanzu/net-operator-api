@@ -220,16 +220,17 @@ type FoundationLoadBalancerConfigSpec struct {
 // FoundationLoadBalancerNetworkConfigSpec contains values for configuring networks on the load balancer.
 //
 // +kubebuilder:validation:XValidation:rule="(has(self.virtualServerIPPools) && size(self.virtualServerIPPools) > 0) || (has(self.virtualServerIPRanges) && size(self.virtualServerIPRanges) > 0)",message="at least one of virtualServerIPPools or virtualServerIPRanges must be non-empty"
+// +kubebuilder:validation:XValidation:rule="!(has(self.virtualServerIPPools) && size(self.virtualServerIPPools) > 0 && has(self.virtualServerIPRanges) && size(self.virtualServerIPRanges) > 0)",message="virtualServerIPPools and virtualServerIPRanges are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.virtualServerIPPools) || (has(self.virtualServerIPPools) && oldSelf.virtualServerIPPools.all(x, self.virtualServerIPPools.exists(y, y.name == x.name)))",message="entries may not be removed from virtualServerIPPools"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.virtualServerIPRanges) || (has(self.virtualServerIPRanges) && oldSelf.virtualServerIPRanges.all(x, self.virtualServerIPRanges.exists(y, y.startingAddress == x.startingAddress)))",message="entries may not be removed from virtualServerIPRanges"
 type FoundationLoadBalancerNetworkConfigSpec struct {
-	// virtualServerIPPools are the list of IPPools that are used for load balancer IP addresses.
-	// The effective set of VIP Pools used by Foundation LoadBalancer instance is the union of
-	// VirtualServerIPPools (explicit references) and pools derived from VirtualServerIPRanges.
+	// virtualServerIPPools is the list of IPPools that are used for load balancer IP addresses.
+	// If this field is used, effectiveVirtualServerIPPools will be populated with entries of virtualServerIPPools
+	// on a successful reconciliation.
 	//
-	// Virtual Server IP Ranges specified across this field as well as VirtualServerIPRanges must
-	// not overlap.
-	// At least one of VirtualServerIPPools or VirtualServerIPRanges must be non-empty.
+	// Use of VirtualServerIPPools and VirtualServerIPRanges are mutually exclusive of each other:
+	// One (and only one) of either VirtualServerIPPools or VirtualServerIPRanges must be non-empty.
+	// Once one of them is set, the other field must never be used.
 	//
 	// +optional
 	// +listType=atomic
@@ -237,13 +238,12 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools,omitempty"`
 
 	// virtualServerIPRanges are IP ranges from which Virtual Server IPs are allocated.
-	// The FLBC controller creates and manages IPPool CRs for each entry.
-	// The effective set of VIP pools is the union of VirtualServerIPPools (explicit references)
-	// and pools derived from this field.
+	// If this field is used, on successful reconciliation of virtualServerIPRanges, effectiveVirtualServerIPPools
+	// will be populated with names of IP Pools reconciled from it.
 	//
-	// Virtual Server IP Ranges specified across this field as well as VirtualServerIPPools must
-	// not overlap.
-	// At least one of VirtualServerIPPools or VirtualServerIPRanges must be non-empty.
+	// Use of VirtualServerIPRanges and VirtualServerIPPools are mutually exclusive of each other:
+	// One (and only one) of either VirtualServerIPRanges or VirtualServerIPPools must be non-empty.
+	// Once one of them is set, the other field must never be used.
 	//
 	// +optional
 	// +listType=atomic

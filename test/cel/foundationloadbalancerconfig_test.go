@@ -474,6 +474,116 @@ func TestFoundationLoadBalancerConfig_EffectiveVirtualServerIPPools_AbsentByDefa
 	}
 }
 
+// --- append-only enforcement (oldSelf CEL rules) ---
+
+// TestFoundationLoadBalancerConfig_VirtualServerIPPools_RemovalRejected verifies that once a
+// pool entry exists it cannot be removed by any client — the oldSelf XValidation rule rejects
+// updates that drop a previously-present name.
+func TestFoundationLoadBalancerConfig_VirtualServerIPPools_RemovalRejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-pool-removal")
+	obj.Spec.NetworkSpec.VirtualServerIPPools = []netv1alpha1.IPPoolReference{
+		{Name: "pool-keep"},
+		{Name: "pool-drop"},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.FoundationLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.NetworkSpec.VirtualServerIPPools = []netv1alpha1.IPPoolReference{
+		{Name: "pool-keep"},
+	}
+	if err := k8sClient.Update(testCtx, latest); !isRejected(err) {
+		t.Fatalf("expected rejection when removing pool-drop from virtualServerIPPools, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_VirtualServerIPPools_AppendAdmitted verifies that adding a
+// new pool entry to an existing list is permitted by the append-only rule.
+func TestFoundationLoadBalancerConfig_VirtualServerIPPools_AppendAdmitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-pool-append")
+	obj.Spec.NetworkSpec.VirtualServerIPPools = []netv1alpha1.IPPoolReference{
+		{Name: "pool-original"},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.FoundationLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.NetworkSpec.VirtualServerIPPools = []netv1alpha1.IPPoolReference{
+		{Name: "pool-original"},
+		{Name: "pool-new"},
+	}
+	if err := k8sClient.Update(testCtx, latest); err != nil {
+		t.Fatalf("expected admission when appending to virtualServerIPPools, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_VirtualServerIPRanges_RemovalRejected verifies that once a
+// range entry exists it cannot be removed — the oldSelf XValidation rule rejects updates that
+// drop a previously-present startingAddress.
+func TestFoundationLoadBalancerConfig_VirtualServerIPRanges_RemovalRejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-range-removal")
+	obj.Spec.NetworkSpec.VirtualServerIPPools = nil
+	obj.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.1.0.1", AddressCount: 4},
+		{StartingAddress: "10.1.1.1", AddressCount: 4},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.FoundationLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.1.0.1", AddressCount: 4},
+	}
+	if err := k8sClient.Update(testCtx, latest); !isRejected(err) {
+		t.Fatalf("expected rejection when removing 10.1.1.1 from virtualServerIPRanges, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_VirtualServerIPRanges_AppendAdmitted verifies that adding a
+// new range entry to an existing list is permitted by the append-only rule.
+func TestFoundationLoadBalancerConfig_VirtualServerIPRanges_AppendAdmitted(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-range-append")
+	obj.Spec.NetworkSpec.VirtualServerIPPools = nil
+	obj.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.2.0.1", AddressCount: 4},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.FoundationLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.2.0.1", AddressCount: 4},
+		{StartingAddress: "10.2.1.1", AddressCount: 4},
+	}
+	if err := k8sClient.Update(testCtx, latest); err != nil {
+		t.Fatalf("expected admission when appending to virtualServerIPRanges, got: %v", err)
+	}
+}
+
 // makeFlbcUnstructured builds a minimal valid FLBC as an Unstructured object, merging extra
 // networkSpec fields.  This allows tests to send exact wire values (e.g. empty strings) that the
 // typed Go client would silently drop via omitempty.

@@ -220,6 +220,8 @@ type FoundationLoadBalancerConfigSpec struct {
 // FoundationLoadBalancerNetworkConfigSpec contains values for configuring networks on the load balancer.
 //
 // +kubebuilder:validation:XValidation:rule="(has(self.virtualServerIPPools) && size(self.virtualServerIPPools) > 0) || (has(self.virtualServerIPRanges) && size(self.virtualServerIPRanges) > 0)",message="at least one of virtualServerIPPools or virtualServerIPRanges must be non-empty"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.virtualServerIPPools) || (has(self.virtualServerIPPools) && oldSelf.virtualServerIPPools.all(x, self.virtualServerIPPools.exists(y, y.name == x.name)))",message="entries may not be removed from virtualServerIPPools"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.virtualServerIPRanges) || (has(self.virtualServerIPRanges) && oldSelf.virtualServerIPRanges.all(x, self.virtualServerIPRanges.exists(y, y.startingAddress == x.startingAddress)))",message="entries may not be removed from virtualServerIPRanges"
 type FoundationLoadBalancerNetworkConfigSpec struct {
 	// virtualServerIPPools are the list of IPPools that are used for load balancer IP addresses.
 	// The effective set of VIP Pools used by Foundation LoadBalancer instance is the union of
@@ -231,7 +233,7 @@ type FoundationLoadBalancerNetworkConfigSpec struct {
 	//
 	// +optional
 	// +listType=atomic
-	// +kubebuilder:validation:MaxItems=1024
+	// +kubebuilder:validation:MaxItems=256
 	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools,omitempty"`
 
 	// virtualServerIPRanges are IP ranges from which Virtual Server IPs are allocated.

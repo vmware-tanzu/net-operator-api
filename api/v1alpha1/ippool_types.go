@@ -99,6 +99,8 @@ type IPPool struct {
 
 type IPPoolReference struct {
 	// Name of the IPPool resource being referenced.
+	//
+	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name"`
 	// API version of the referent.
 	APIVersion string `json:"apiVersion,omitempty"`

@@ -57,7 +57,10 @@ type FoundationLoadBalancerDeploymentSpec struct {
 
 	// Zones contains the names of zones eligible for placing nodes. Zones must be one of the
 	// AvailabilityZones defined and eligible for placement on the cluster.
-	// When empty, all supervisor zones are eligible.
+	//
+	// Currently only management zones are eligible for Foundation Load Balancer placements.
+	// If none of the zones specified is a management zone, placement will fail.
+	// When empty, all management zones are eligible.
 	//
 	// +optional
 	// +listType=atomic

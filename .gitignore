@@ -13,6 +13,9 @@ vendor
 .claude
 .cursor
 
+# local git worktrees
+.worktrees
+
 # Test binary, build with `go test -c`
 *.test
 

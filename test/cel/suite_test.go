@@ -3,7 +3,7 @@
 // and/or its subsidiaries.
 
 // Package cel_test contains envtest-based tests that verify CEL and OpenAPI
-// validation rules fire correctly on admission for the five LB CRD types.
+// validation rules fire correctly on admission for the CRD types in this repo.
 package cel_test
 
 import (
@@ -38,19 +38,8 @@ func TestMain(m *testing.M) {
 	repoRoot := filepath.Join(filepath.Dir(filename), "..", "..")
 	crdDir := filepath.Join(repoRoot, "config", "crd", "bases")
 
-	// Load only the five LB CRD files exercised by this suite.  Loading the
-	// entire crdDir would include unrelated CRDs (e.g. NamespaceNetworkConfiguration)
-	// that have schema bugs rejected by kube-apiserver v1.30 at install time.
-	crdFiles := []string{
-		filepath.Join(crdDir, "netoperator.vmware.com_aviloadbalancerconfigs.yaml"),
-		filepath.Join(crdDir, "netoperator.vmware.com_foundationloadbalancerconfigs.yaml"),
-		filepath.Join(crdDir, "netoperator.vmware.com_haproxyloadbalancerconfigs.yaml"),
-		filepath.Join(crdDir, "netoperator.vmware.com_ippools.yaml"),
-		filepath.Join(crdDir, "netoperator.vmware.com_loadbalancerconfigs.yaml"),
-	}
-
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     crdFiles,
+		CRDDirectoryPaths:     []string{crdDir},
 		ErrorIfCRDPathMissing: true,
 	}
 

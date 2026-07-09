@@ -197,41 +197,6 @@ type AutoCreateVPCConfig struct {
 	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
 }
 
-// NetworkProviderDefaultConfig holds the subset of provider configuration that
-// may be independently overridden for new namespaces, distinct from and
-// unconstrained by the append-only/immutable rules that apply to
-// systemConfiguration. Currently only the vpc provider has such a divergence.
-//
-// +kubebuilder:validation:MinProperties=1
-type NetworkProviderDefaultConfig struct {
-	// vpcConfig overrides default values used when auto-creating VPCs for new
-	// namespaces under the vpc provider.
-	//
-	// +optional
-	VPCConfig *DefaultVPCConfig `json:"vpcConfig,omitempty"`
-}
-
-// DefaultVPCConfig holds VPC default values that may be changed independently
-// of the vpc provider's systemConfiguration.
-type DefaultVPCConfig struct {
-	// privateCIDRs replaces the CIDR blocks used as private-subnet/private-pod-IP
-	// defaults for VPCs auto-created for namespaces onboarding after this is
-	// set. Already-created namespace VPCs are unaffected.
-	//
-	// This value fully replaces (not appends to) the previous default and is
-	// not subject to the append-only constraint that applies to
-	// systemConfiguration.vpcConfig.autoCreateConfig.privateCIDRs. When unset,
-	// new namespaces use systemConfiguration's privateCIDRs instead.
-	//
-	// +optional
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=16
-	// +kubebuilder:validation:items:MaxLength=64
-	// +kubebuilder:validation:items:Pattern=`^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`
-	// +listType=atomic
-	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
-}
-
 // VPCConfig specifies the VPC network configuration for a namespace.
 //
 // There are two mutually exclusive modes:

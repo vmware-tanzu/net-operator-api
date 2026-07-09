@@ -54,16 +54,51 @@ type NetworkProviderEntry struct {
 
 	// defaultNamespaceConfiguration optionally overrides configuration values
 	// applied when provisioning new namespaces under this provider, going
-	// forward. When unset, or when a given sub-field is unset, the equivalent
-	// value from systemConfiguration is used instead.
+	// forward. It does not alter the configuration of namespaces already
+	// associated under this provider. When unset, or when a given sub-field is
+	// unset, the equivalent value from systemConfiguration is used instead.
 	//
-	// Unlike systemConfiguration, values here are not tied to the currently
-	// active system NNC: they may be replaced freely and only take effect for
-	// namespaces onboarded after the change. Namespaces already associated
-	// under this provider are unaffected.
+	// Values here follow different mutability rules than systemConfiguration:
+	// they may be replaced freely and take effect only for namespaces onboarded
+	// after the change.
 	//
 	// +optional
 	DefaultNamespaceConfiguration NetworkProviderDefaultConfig `json:"defaultNamespaceConfiguration,omitempty,omitzero"`
+}
+
+// NetworkProviderDefaultConfig holds the subset of provider configuration that
+// may be independently overridden for new namespaces, distinct from and
+// unconstrained by the append-only/immutable rules that apply to
+// systemConfiguration.
+//
+// +kubebuilder:validation:MinProperties=1
+type NetworkProviderDefaultConfig struct {
+	// vpcConfig overrides default values used when auto-creating VPCs for new
+	// namespaces under the vpc provider.
+	//
+	// +optional
+	VPCConfig *DefaultVPCConfig `json:"vpcConfig,omitempty"`
+}
+
+// DefaultVPCConfig holds VPC default values that may be changed independently
+// of the vpc provider's systemConfiguration.
+type DefaultVPCConfig struct {
+	// privateCIDRs sets the CIDR blocks used as private-subnet/private-pod-IP
+	// defaults for VPCs auto-created for namespaces onboarding after this is
+	// set. Already-created namespace VPCs are unaffected.
+	//
+	// This value fully replaces (not appends to) the previous default and is
+	// not subject to the append-only constraint that applies to
+	// systemConfiguration.vpcConfig.autoCreateConfig.privateCIDRs. When unset,
+	// new namespaces use systemConfiguration's privateCIDRs instead.
+	//
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:MaxLength=64
+	// +kubebuilder:validation:items:Pattern=`^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`
+	// +listType=atomic
+	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.providers.exists(p, p.type == self.activeSystemProvider)",message="activeSystemProvider must reference a provider type declared in providers"

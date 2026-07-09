@@ -401,3 +401,140 @@ func TestWorkloadNetworkConfiguration_ConditionStatusOutsideEnum_Rejected(t *tes
 		t.Fatalf("expected rejection containing %q, got: %v", "Unsupported value", err)
 	}
 }
+
+// -----------------------------------------------------------------------
+// defaultNamespaceConfiguration
+// Rule: self.type == 'vpc' || !has(self.defaultNamespaceConfiguration.vpcConfig)
+// NetworkProviderDefaultConfig: +kubebuilder:validation:MinProperties=1
+// DefaultVPCConfig.privateCIDRs: +optional, minItems=1, maxItems=16, CIDR pattern
+// -----------------------------------------------------------------------
+
+// vpcWNC builds a minimal valid vpc-provider WNC named "default".
+func vpcWNC() *netv1alpha1.WorkloadNetworkConfiguration {
+	return &netv1alpha1.WorkloadNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: wncDefaultName},
+		Spec: netv1alpha1.WorkloadNetworkConfigurationSpec{
+			Providers: []netv1alpha1.NetworkProviderEntry{
+				{
+					Type: netv1alpha1.NetworkProviderVPC,
+					SystemConfiguration: &netv1alpha1.NamespaceNetworkConfig{
+						VPCConfig: netv1alpha1.VPCConfig{
+							AutoCreateConfig: netv1alpha1.AutoCreateVPCConfig{
+								NSXProject:             testNSXProject,
+								VPCConnectivityProfile: testVPCConnProfile,
+								PrivateCIDRs:           []string{testCIDR1},
+							},
+						},
+					},
+				},
+			},
+			ActiveSystemProvider: netv1alpha1.NetworkProviderVPC,
+		},
+	}
+}
+
+func TestWorkloadNetworkConfiguration_ValidDefaultVPCConfig_Admitted(t *testing.T) {
+	wnc := vpcWNC()
+	wnc.Spec.Providers[0].DefaultNamespaceConfiguration = netv1alpha1.NetworkProviderDefaultConfig{
+		VPCConfig: &netv1alpha1.DefaultVPCConfig{
+			PrivateCIDRs: []string{"10.1.0.0/24"},
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, wnc) }()
+}
+
+func TestWorkloadNetworkConfiguration_DefaultVPCConfigOnNonVPCType_Rejected(t *testing.T) {
+	wnc := vdsWNC()
+	wnc.Spec.Providers[0].DefaultNamespaceConfiguration = netv1alpha1.NetworkProviderDefaultConfig{
+		VPCConfig: &netv1alpha1.DefaultVPCConfig{
+			PrivateCIDRs: []string{"10.1.0.0/24"},
+		},
+	}
+	err := k8sClient.Create(testCtx, wnc)
+	if err == nil || !strings.Contains(err.Error(), "defaultNamespaceConfiguration.vpcConfig may only be set when type is vpc") {
+		t.Fatalf("expected rejection for defaultNamespaceConfiguration.vpcConfig on non-vpc type, got: %v", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_EmptyDefaultNamespaceConfiguration_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVPC),
+		"providers": []interface{}{
+			map[string]interface{}{
+				"type": string(netv1alpha1.NetworkProviderVPC),
+				"systemConfiguration": map[string]interface{}{
+					"vpcConfig": map[string]interface{}{
+						"autoCreateConfig": map[string]interface{}{
+							"nsxProject":             testNSXProject,
+							"vpcConnectivityProfile": testVPCConnProfile,
+						},
+					},
+				},
+				"defaultNamespaceConfiguration": map[string]interface{}{},
+			},
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for empty defaultNamespaceConfiguration (MinProperties=1), got: %v", err)
+	}
+}
+
+// TestWorkloadNetworkConfiguration_EmptyPrivateCIDRsList_Rejected sends the
+// request as Unstructured because the typed client's `omitempty` drops an
+// empty (but non-nil) []string entirely on marshal, which would silently
+// turn this into "field absent" instead of testing the MinItems=1 rule.
+func TestWorkloadNetworkConfiguration_EmptyPrivateCIDRsList_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVPC),
+		"providers": []interface{}{
+			map[string]interface{}{
+				"type": string(netv1alpha1.NetworkProviderVPC),
+				"systemConfiguration": map[string]interface{}{
+					"vpcConfig": map[string]interface{}{
+						"autoCreateConfig": map[string]interface{}{
+							"nsxProject":             testNSXProject,
+							"vpcConnectivityProfile": testVPCConnProfile,
+						},
+					},
+				},
+				"defaultNamespaceConfiguration": map[string]interface{}{
+					"vpcConfig": map[string]interface{}{
+						"privateCIDRs": []interface{}{},
+					},
+				},
+			},
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for explicit empty privateCIDRs list (MinItems=1), got: %v", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_DefaultPrivateCIDRsFullReplace_Admitted(t *testing.T) {
+	wnc := vpcWNC()
+	wnc.Spec.Providers[0].DefaultNamespaceConfiguration = netv1alpha1.NetworkProviderDefaultConfig{
+		VPCConfig: &netv1alpha1.DefaultVPCConfig{
+			PrivateCIDRs: []string{"10.1.0.0/24"},
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, wnc) }()
+
+	latest := &netv1alpha1.WorkloadNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(wnc), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	// Full replace with a CIDR that was never in the original list. Unlike
+	// systemConfiguration.vpcConfig.autoCreateConfig.privateCIDRs (append-only),
+	// defaultNamespaceConfiguration.vpcConfig.privateCIDRs has no append-only
+	// constraint, so dropping 10.1.0.0/24 entirely must be admitted.
+	latest.Spec.Providers[0].DefaultNamespaceConfiguration.VPCConfig.PrivateCIDRs = []string{"10.2.0.0/24"}
+	if err := k8sClient.Update(testCtx, latest); err != nil {
+		t.Fatalf("expected admission for full-replace of defaultNamespaceConfiguration privateCIDRs, got: %v", err)
+	}
+}

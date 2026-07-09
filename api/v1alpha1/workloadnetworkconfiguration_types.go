@@ -36,6 +36,7 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.systemConfiguration.vsphereDistributedConfig)",message="systemConfiguration.vsphereDistributedConfig may only be set when type is vsphere-distributed"
 // +kubebuilder:validation:XValidation:rule="self.type != 'vpc' || has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig must be set when type is vpc"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig may only be set when type is vpc"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.defaultNamespaceConfiguration) || !has(self.defaultNamespaceConfiguration.vpcConfig)",message="defaultNamespaceConfiguration.vpcConfig may only be set when type is vpc"
 
 // NetworkProviderEntry pairs a network provider type with its system-level
 // NamespaceNetworkConfiguration template. Exactly one entry per type is allowed
@@ -50,6 +51,19 @@ type NetworkProviderEntry struct {
 	//
 	// +required
 	SystemConfiguration *NamespaceNetworkConfig `json:"systemConfiguration,omitempty"`
+
+	// defaultNamespaceConfiguration optionally overrides configuration values
+	// applied when provisioning new namespaces under this provider, going
+	// forward. When unset, or when a given sub-field is unset, the equivalent
+	// value from systemConfiguration is used instead.
+	//
+	// Unlike systemConfiguration, values here are not tied to the currently
+	// active system NNC: they may be replaced freely and only take effect for
+	// namespaces onboarded after the change. Namespaces already associated
+	// under this provider are unaffected.
+	//
+	// +optional
+	DefaultNamespaceConfiguration NetworkProviderDefaultConfig `json:"defaultNamespaceConfiguration,omitempty,omitzero"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.providers.exists(p, p.type == self.activeSystemProvider)",message="activeSystemProvider must reference a provider type declared in providers"

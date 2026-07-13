@@ -309,12 +309,13 @@ const (
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.namespaceCIDRs) || oldSelf.namespaceCIDRs.all(cidr, self.namespaceCIDRs.exists(c, c == cidr))",message="namespaceCIDRs is append-only; existing entries cannot be removed"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.ingressCIDRs) || oldSelf.ingressCIDRs.all(cidr, self.ingressCIDRs.exists(c, c == cidr))",message="ingressCIDRs is append-only; existing entries cannot be removed"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.egressCIDRs) || oldSelf.egressCIDRs.all(cidr, self.egressCIDRs.exists(c, c == cidr))",message="egressCIDRs is append-only; existing entries cannot be removed"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.subnetPrefixLength) || self.subnetPrefixLength == oldSelf.subnetPrefixLength",message="subnetPrefixLength is immutable once set"
 type NSXTier1Config struct {
 	// namespaceCIDRs specifies CIDR blocks from which Kubernetes allocates IP
 	// addresses for all workloads (such as Pods and VMs) that attach to the namespace.
 	// These ranges must not overlap with ingressCIDRs, egressCIDRs, or other services running in the datacenter.
 	// Required when tier0Gateway or any of ingressCIDRs or egressCIDRs are
-	// specified. Updates may only add new CIDR blocks; existing entries cannot be removed.
+	// specified. This field is append-only; existing entries cannot be removed.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
@@ -327,7 +328,7 @@ type NSXTier1Config struct {
 	// for Kubernetes Ingresses and Services of type LoadBalancer. These ranges
 	// must not overlap with namespaceCIDRs, egressCIDRs, or other services
 	// running in the datacenter. Required when tier0Gateway or any of
-	// namespaceCIDRs or egressCIDRs are specified. Updates may only add new CIDR blocks; existing entries cannot be removed.
+	// namespaceCIDRs or egressCIDRs are specified. This field is append-only; existing entries cannot be removed.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
@@ -339,7 +340,7 @@ type NSXTier1Config struct {
 	// egressCIDRs specifies CIDR blocks from which NSX assigns IPs used for
 	// SNAT from container IPs to external IPs. Must not be set when routingMode
 	// is Routed. Required when routingMode is NAT and tier0Gateway or any of
-	// namespaceCIDRs or ingressCIDRs are specified. Updates may only add new CIDR blocks; existing entries cannot be removed.
+	// namespaceCIDRs or ingressCIDRs are specified. This field is append-only; existing entries cannot be removed.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
@@ -362,6 +363,7 @@ type NSXTier1Config struct {
 	// segments (e.g. 28 for a /28 subnet). When unset, the cluster-level
 	// default from the global NSX Container Plugin (NCP) configuration is applied.
 	// Leaving this field unset allows partial overrides of other parameters.
+	// This field is immutable once set.
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=1
@@ -406,6 +408,7 @@ type NamespaceNetworkConfig struct {
 	// the cluster-level NSX Container Plugin (NCP) configuration in inherit mode. When present,
 	// the fields here override those cluster-level defaults for this namespace in override mode, and
 	// a dedicated physical NSX Tier-1 Gateway is provisioned for the namespace.
+	// This field cannot be added or removed once set.
 	//
 	// +optional
 	NSXTier1Config *NSXTier1Config `json:"nsxTier1Config,omitempty,omitzero"`
@@ -428,6 +431,7 @@ type NamespaceNetworkConfig struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.vsphereDistributedConfig) || !has(self.vsphereDistributedConfig.networks) || self.vsphereDistributedConfig.networks.size() == 0",message="vsphereDistributedConfig must not be populated when type is not vsphere-distributed"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.vpcConfig) || ((!has(self.vpcConfig.vpc) || self.vpcConfig.vpc == '') && !has(self.vpcConfig.autoCreateConfig))",message="vpcConfig must not be populated when type is not vpc"
 // +kubebuilder:validation:XValidation:rule="self.type == 'nsx-tier1' || !has(self.nsxTier1Config)",message="nsxTier1Config must not be populated when type is not nsx-tier1"
+// +kubebuilder:validation:XValidation:rule="has(self.nsxTier1Config) == has(oldSelf.nsxTier1Config)",message="nsxTier1Config cannot be added or removed once set"
 type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines
 	// which provider-specific config section must be populated.

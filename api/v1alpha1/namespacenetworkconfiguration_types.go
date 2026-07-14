@@ -360,14 +360,16 @@ type NSXTier1Config struct {
 	Tier0Gateway string `json:"tier0Gateway,omitempty"`
 
 	// subnetPrefixLength is the prefix length of subnets reserved for namespace
-	// segments (e.g. 28 for a /28 subnet). When unset, the cluster-level
-	// default from the global NSX Container Plugin (NCP) configuration is applied.
-	// Leaving this field unset allows partial overrides of other parameters.
+	// segments (e.g., 28 for a /28 subnet). Range: [1, 29]. Values 30, 31, and 32
+	// are invalid because NSX-T/NCP reserves 3 IP addresses (network, gateway,
+	// and broadcast) per logical segment, and the vCenter UI enforces a maximum of 29.
+	// When unset, the cluster-level default from the global NSX Container Plugin (NCP)
+	// configuration is applied. Leaving this field unset allows partial overrides of other parameters.
 	// This field is immutable once set.
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=32
+	// +kubebuilder:validation:Maximum=29
 	SubnetPrefixLength int32 `json:"subnetPrefixLength,omitempty"`
 
 	// routingMode specifies whether traffic leaving the namespace is NATed.

@@ -1587,6 +1587,54 @@ func TestNamespaceNetworkConfiguration_NSXTier1MissingEgressCIDR_Rejected(t *tes
 	}
 }
 
+func TestNamespaceNetworkConfiguration_NSXTier1SubnetPrefixLength_Validation(t *testing.T) {
+	// 1. Accept subnetPrefixLength = 29
+	nncValid := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-prefix-29-valid"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs:     []string{testNamespaceCIDR},
+					IngressCIDRs:       []string{testIngressCIDR},
+					EgressCIDRs:        []string{testEgressCIDR},
+					Tier0Gateway:       testTier0Gateway,
+					RoutingMode:        netv1alpha1.NSXTier1RoutingModeNAT,
+					LoadBalancerSize:   netv1alpha1.NSXLoadBalancerSizeSmall,
+					SubnetPrefixLength: 29,
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nncValid); err != nil {
+		t.Fatalf("expected admission for subnetPrefixLength=29, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nncValid) }()
+
+	// 2. Reject subnetPrefixLength = 30
+	nncInvalid := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-prefix-30-invalid"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs:     []string{testNamespaceCIDR},
+					IngressCIDRs:       []string{testIngressCIDR},
+					EgressCIDRs:        []string{testEgressCIDR},
+					Tier0Gateway:       testTier0Gateway,
+					RoutingMode:        netv1alpha1.NSXTier1RoutingModeNAT,
+					LoadBalancerSize:   netv1alpha1.NSXLoadBalancerSizeSmall,
+					SubnetPrefixLength: 30,
+				},
+			},
+		},
+	}
+	err := k8sClient.Create(testCtx, nncInvalid)
+	if err == nil || !strings.Contains(err.Error(), "subnetPrefixLength") {
+		t.Fatalf("expected rejection for subnetPrefixLength=30, got: %v", err)
+	}
+}
+
 func TestNamespaceNetworkConfiguration_NSXTier1UpdatesAndImmutability(t *testing.T) {
 	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-upd-immutability"},

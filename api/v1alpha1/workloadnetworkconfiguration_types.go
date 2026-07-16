@@ -31,11 +31,12 @@ const (
 	WorkloadNetworkReasonFailed = "Failed"
 )
 
-// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc'",message="only vsphere-distributed and vpc are currently supported; nsx-tier1 will be introduced in a future version"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc' || self.type == 'nsx-tier1'",message="type must be one of: vsphere-distributed, vpc, nsx-tier1"
 // +kubebuilder:validation:XValidation:rule="self.type != 'vsphere-distributed' || has(self.systemConfiguration.vsphereDistributedConfig)",message="systemConfiguration.vsphereDistributedConfig must be set when type is vsphere-distributed"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.systemConfiguration.vsphereDistributedConfig)",message="systemConfiguration.vsphereDistributedConfig may only be set when type is vsphere-distributed"
 // +kubebuilder:validation:XValidation:rule="self.type != 'vpc' || has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig must be set when type is vpc"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig may only be set when type is vpc"
+// +kubebuilder:validation:XValidation:rule="self.type == 'nsx-tier1' || !has(self.systemConfiguration.nsxTier1Config)",message="systemConfiguration.nsxTier1Config may only be set when type is nsx-tier1"
 
 // NetworkProviderEntry pairs a network provider type with its system-level
 // NamespaceNetworkConfiguration template. Exactly one entry per type is allowed

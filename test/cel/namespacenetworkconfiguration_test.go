@@ -156,14 +156,15 @@ func TestNamespaceNetworkConfiguration_EmptySpec_Rejected(t *testing.T) {
 // Type Field Validations
 // -----------------------------------------------------------------------
 
-func TestNamespaceNetworkConfiguration_TypeNSXTier1_Rejected(t *testing.T) {
+func TestNamespaceNetworkConfiguration_TypeNSXTier1Inherit_Admitted(t *testing.T) {
 	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-type-nsx-tier1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "test-type-nsx-tier1-inherit"},
 		Spec:       netv1alpha1.NamespaceNetworkSpec{Type: netv1alpha1.NetworkProviderNSXTier1},
 	}
-	if err := k8sClient.Create(testCtx, nnc); err == nil || !strings.Contains(err.Error(), "nsx-tier1") {
-		t.Fatalf("expected rejection containing %q, got: %v", "nsx-tier1", err)
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
 	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
 }
 
 func TestNamespaceNetworkConfiguration_TypeVPCValid_Admitted(t *testing.T) {
@@ -195,8 +196,8 @@ func TestNamespaceNetworkConfiguration_TypeVPCWithVDS_Rejected(t *testing.T) {
 			providerVPC: testVPCPathFull,
 		},
 	})
-	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "vsphereDistributedConfig and vpcConfig are mutually exclusive") {
-		t.Fatalf("expected rejection containing %q, got: %v", "vsphereDistributedConfig and vpcConfig are mutually exclusive", err)
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "vsphereDistributedConfig must not be populated when type is not vsphere-distributed") {
+		t.Fatalf("expected rejection containing %q, got: %v", "vsphereDistributedConfig must not be populated when type is not vsphere-distributed", err)
 	}
 }
 
@@ -211,8 +212,8 @@ func TestNamespaceNetworkConfiguration_TypeVDSWithVPC_Rejected(t *testing.T) {
 			providerVPC: testVPCPathFull,
 		},
 	})
-	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "vsphereDistributedConfig and vpcConfig are mutually exclusive") {
-		t.Fatalf("expected rejection containing %q, got: %v", "vsphereDistributedConfig and vpcConfig are mutually exclusive", err)
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "vpcConfig must not be populated when type is not vpc") {
+		t.Fatalf("expected rejection containing %q, got: %v", "vpcConfig must not be populated when type is not vpc", err)
 	}
 }
 
@@ -1469,5 +1470,398 @@ func TestNamespaceNetworkConfiguration_FullyDeletedAfterFinalizerRemoved(t *test
 	err := k8sClient.Get(testCtx, client.ObjectKey{Name: testFinalizer}, fetched)
 	if !apierrors.IsNotFound(err) {
 		t.Fatalf("expected IsNotFound after finalizer removal and delete, got: %v", err)
+	}
+}
+
+// -----------------------------------------------------------------------
+// NSX Tier-1 Config — field validations and mutability.
+// -----------------------------------------------------------------------
+
+const (
+	testNamespaceCIDR = "192.168.1.0/24"
+	testIngressCIDR   = "192.168.2.0/24"
+	testEgressCIDR    = "192.168.3.0/24"
+	testTier0Gateway  = "/infra/tier-0s/my-gw"
+)
+
+func TestNamespaceNetworkConfiguration_NSXTier1ValidOverride_Admitted(t *testing.T) {
+	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-valid-override"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs:   []string{testNamespaceCIDR},
+					IngressCIDRs:     []string{testIngressCIDR},
+					EgressCIDRs:      []string{testEgressCIDR},
+					Tier0Gateway:     testTier0Gateway,
+					RoutingMode:      netv1alpha1.NSXTier1RoutingModeNAT,
+					LoadBalancerSize: netv1alpha1.NSXLoadBalancerSizeSmall,
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1RoutedWithEgress_Rejected(t *testing.T) {
+	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-routed-with-egress"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs: []string{testNamespaceCIDR},
+					IngressCIDRs:   []string{testIngressCIDR},
+					EgressCIDRs:    []string{testEgressCIDR},
+					RoutingMode:    netv1alpha1.NSXTier1RoutingModeRouted,
+				},
+			},
+		},
+	}
+	err := k8sClient.Create(testCtx, nnc)
+	if err == nil || !strings.Contains(err.Error(), "egressCIDRs must not be set when routingMode is Routed") {
+		t.Fatalf("expected rejection containing %q, got: %v", "egressCIDRs must not be set when routingMode is Routed", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1MissingNamespaceCIDR_Rejected(t *testing.T) {
+	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-missing-namespace-cidr"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					IngressCIDRs: []string{testIngressCIDR},
+					Tier0Gateway: testTier0Gateway,
+				},
+			},
+		},
+	}
+	err := k8sClient.Create(testCtx, nnc)
+	if err == nil || !strings.Contains(err.Error(), "namespaceCIDRs must be set when tier0Gateway, ingressCIDRs, or egressCIDRs are specified") {
+		t.Fatalf("expected rejection, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1MissingIngressCIDR_Rejected(t *testing.T) {
+	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-missing-ingress-cidr"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs: []string{testNamespaceCIDR},
+					Tier0Gateway:   testTier0Gateway,
+				},
+			},
+		},
+	}
+	err := k8sClient.Create(testCtx, nnc)
+	if err == nil || !strings.Contains(err.Error(), "ingressCIDRs must be set when tier0Gateway, namespaceCIDRs, or egressCIDRs are specified") {
+		t.Fatalf("expected rejection, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1MissingEgressCIDR_Rejected(t *testing.T) {
+	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-missing-egress-cidr"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs: []string{testNamespaceCIDR},
+					IngressCIDRs:   []string{testIngressCIDR},
+					Tier0Gateway:   testTier0Gateway,
+					RoutingMode:    netv1alpha1.NSXTier1RoutingModeNAT,
+				},
+			},
+		},
+	}
+	err := k8sClient.Create(testCtx, nnc)
+	if err == nil || !strings.Contains(err.Error(), "egressCIDRs must be set when routingMode is NAT and tier0Gateway, namespaceCIDRs, or ingressCIDRs are specified") {
+		t.Fatalf("expected rejection, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1SubnetPrefixLength_Validation(t *testing.T) {
+	// 1. Accept subnetPrefixLength = 29
+	nncValid := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-prefix-29-valid"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs:     []string{testNamespaceCIDR},
+					IngressCIDRs:       []string{testIngressCIDR},
+					EgressCIDRs:        []string{testEgressCIDR},
+					Tier0Gateway:       testTier0Gateway,
+					RoutingMode:        netv1alpha1.NSXTier1RoutingModeNAT,
+					LoadBalancerSize:   netv1alpha1.NSXLoadBalancerSizeSmall,
+					SubnetPrefixLength: 29,
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nncValid); err != nil {
+		t.Fatalf("expected admission for subnetPrefixLength=29, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nncValid) }()
+
+	// 2. Reject subnetPrefixLength = 30
+	nncInvalid := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-prefix-30-invalid"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs:     []string{testNamespaceCIDR},
+					IngressCIDRs:       []string{testIngressCIDR},
+					EgressCIDRs:        []string{testEgressCIDR},
+					Tier0Gateway:       testTier0Gateway,
+					RoutingMode:        netv1alpha1.NSXTier1RoutingModeNAT,
+					LoadBalancerSize:   netv1alpha1.NSXLoadBalancerSizeSmall,
+					SubnetPrefixLength: 30,
+				},
+			},
+		},
+	}
+	err := k8sClient.Create(testCtx, nncInvalid)
+	if err == nil || !strings.Contains(err.Error(), "subnetPrefixLength") {
+		t.Fatalf("expected rejection for subnetPrefixLength=30, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1UpdatesAndImmutability(t *testing.T) {
+	nnc := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-upd-immutability"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs:   []string{testNamespaceCIDR},
+					IngressCIDRs:     []string{testIngressCIDR},
+					EgressCIDRs:      []string{testEgressCIDR},
+					Tier0Gateway:     testTier0Gateway,
+					RoutingMode:      netv1alpha1.NSXTier1RoutingModeNAT,
+					LoadBalancerSize: netv1alpha1.NSXLoadBalancerSizeSmall,
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
+
+	fetched := &netv1alpha1.NamespaceNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 1. Reject updating tier0Gateway
+	fetched.Spec.NSXTier1Config.Tier0Gateway = "/infra/tier-0s/other-gw"
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "tier0Gateway is immutable once set") {
+		t.Fatalf("expected rejection for tier0Gateway update, got: %v", err)
+	}
+
+	// Reset tier0Gateway
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 2. Reject updating routingMode
+	fetched.Spec.NSXTier1Config.RoutingMode = netv1alpha1.NSXTier1RoutingModeRouted
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "routingMode is immutable once set") {
+		t.Fatalf("expected rejection for routingMode update, got: %v", err)
+	}
+
+	// Reset routingMode
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 3. Reject updating loadBalancerSize
+	fetched.Spec.NSXTier1Config.LoadBalancerSize = netv1alpha1.NSXLoadBalancerSizeMedium
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "loadBalancerSize is immutable once set") {
+		t.Fatalf("expected rejection for loadBalancerSize update, got: %v", err)
+	}
+
+	// Reset loadBalancerSize
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 4. Reject updating namespaceCIDRs (removing an entry)
+	fetched.Spec.NSXTier1Config.NamespaceCIDRs = []string{}
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "namespaceCIDRs is append-only") {
+		t.Fatalf("expected rejection for namespaceCIDRs removal, got: %v", err)
+	}
+
+	// Reset namespaceCIDRs
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 5. Reject updating ingressCIDRs (removing an entry)
+	fetched.Spec.NSXTier1Config.IngressCIDRs = []string{}
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "ingressCIDRs is append-only") {
+		t.Fatalf("expected rejection for ingressCIDRs removal, got: %v", err)
+	}
+
+	// Reset ingressCIDRs
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 6. Reject updating egressCIDRs (removing an entry)
+	fetched.Spec.NSXTier1Config.EgressCIDRs = []string{}
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "egressCIDRs is append-only") {
+		t.Fatalf("expected rejection for egressCIDRs removal, got: %v", err)
+	}
+
+	// Reset egressCIDRs
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 7. Accept appending new CIDRs
+	fetched.Spec.NSXTier1Config.NamespaceCIDRs = append(fetched.Spec.NSXTier1Config.NamespaceCIDRs, "192.168.10.0/24")
+	fetched.Spec.NSXTier1Config.IngressCIDRs = append(fetched.Spec.NSXTier1Config.IngressCIDRs, "192.168.20.0/24")
+	fetched.Spec.NSXTier1Config.EgressCIDRs = append(fetched.Spec.NSXTier1Config.EgressCIDRs, "192.168.30.0/24")
+	if err := k8sClient.Update(testCtx, fetched); err != nil {
+		t.Fatalf("expected successful CIDR append, got: %v", err)
+	}
+
+	// Reset fetched
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 8. Reject updating subnetPrefixLength once set
+	fetched.Spec.NSXTier1Config.SubnetPrefixLength = 24
+	if err := k8sClient.Update(testCtx, fetched); err != nil {
+		t.Fatalf("expected setting subnetPrefixLength first time to succeed, got: %v", err)
+	}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	fetched.Spec.NSXTier1Config.SubnetPrefixLength = 28
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "subnetPrefixLength is immutable once set") {
+		t.Fatalf("expected rejection for subnetPrefixLength update, got: %v", err)
+	}
+
+	// Reset fetched
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: nnc.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// 9. Reject removing nsxTier1Config once set
+	fetched.Spec.NSXTier1Config = nil
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "the presence of nsxTier1Config is immutable once the resource is created (cannot transition between inherit and override modes post-creation)") {
+		t.Fatalf("expected rejection for removing nsxTier1Config, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1InheritToOverrideTransition_Rejected(t *testing.T) {
+	inheritNNC := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-t1-inherit-to-override"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+		},
+	}
+	if err := k8sClient.Create(testCtx, inheritNNC); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, inheritNNC) }()
+
+	fetched := &netv1alpha1.NamespaceNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: inheritNNC.Name}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	// Transition to override mode: set nsxTier1Config (should be rejected by the strict presence immutability rule)
+	fetched.Spec.NSXTier1Config = &netv1alpha1.NSXTier1Config{
+		NamespaceCIDRs: []string{testNamespaceCIDR},
+		IngressCIDRs:   []string{testIngressCIDR},
+		EgressCIDRs:    []string{testEgressCIDR},
+	}
+	err := k8sClient.Update(testCtx, fetched)
+	if err == nil || !strings.Contains(err.Error(), "the presence of nsxTier1Config is immutable once the resource is created (cannot transition between inherit and override modes post-creation)") {
+		t.Fatalf("expected rejection for adding nsxTier1Config online, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_NSXTier1MutualExclusion(t *testing.T) {
+	// 1. Populating vsphereDistributedConfig when type is nsx-tier1
+	nnc1 := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mut-vds-when-t1"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				VSphereDistributedConfig: netv1alpha1.VSphereDistributedConfig{
+					DefaultNetwork: testNetName,
+					Networks:       []netv1alpha1.VSphereDistributedNetworkRef{{Name: testNetName}},
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nnc1); err == nil || !strings.Contains(err.Error(), "vsphereDistributedConfig must not be populated when type is not vsphere-distributed") {
+		t.Fatalf("expected rejection, got: %v", err)
+	}
+
+	// 2. Populating vpcConfig when type is nsx-tier1
+	nnc2 := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mut-vpc-when-t1"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				VPCConfig: netv1alpha1.VPCConfig{
+					VPC: "/infra/vpcs/vpc-1",
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nnc2); err == nil || !strings.Contains(err.Error(), "vpcConfig must not be populated when type is not vpc") {
+		t.Fatalf("expected rejection, got: %v", err)
+	}
+
+	// 3. Populating nsxTier1Config when type is vsphere-distributed
+	nnc3 := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mut-t1-when-vds"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderVSphereDistributed,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				VSphereDistributedConfig: netv1alpha1.VSphereDistributedConfig{
+					DefaultNetwork: testNetName,
+					Networks:       []netv1alpha1.VSphereDistributedNetworkRef{{Name: testNetName}},
+				},
+				NSXTier1Config: &netv1alpha1.NSXTier1Config{
+					NamespaceCIDRs: []string{testNamespaceCIDR},
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nnc3); err == nil || !strings.Contains(err.Error(), "nsxTier1Config must not be populated when type is not nsx-tier1") {
+		t.Fatalf("expected rejection, got: %v", err)
+	}
+
+	// 4. Populating vpcConfig with only defaultSubnetSize (the loophole) when type is nsx-tier1
+	nnc4 := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mut-vpc-loophole-when-t1"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				VPCConfig: netv1alpha1.VPCConfig{
+					DefaultSubnetSize: 64,
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nnc4); err == nil || !strings.Contains(err.Error(), "vpcConfig must not be populated when type is not vpc") {
+		t.Fatalf("expected rejection for partial vpcConfig when type is nsx-tier1, got: %v", err)
 	}
 }

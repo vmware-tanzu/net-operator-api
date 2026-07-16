@@ -1761,7 +1761,7 @@ func TestNamespaceNetworkConfiguration_NSXTier1UpdatesAndImmutability(t *testing
 
 	// 9. Reject removing nsxTier1Config once set
 	fetched.Spec.NSXTier1Config = nil
-	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "nsxTier1Config cannot be added or removed once set") {
+	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "the presence of nsxTier1Config is immutable once the resource is created (cannot transition between inherit and override modes post-creation)") {
 		t.Fatalf("expected rejection for removing nsxTier1Config, got: %v", err)
 	}
 }
@@ -1790,7 +1790,7 @@ func TestNamespaceNetworkConfiguration_NSXTier1InheritToOverrideTransition_Rejec
 		EgressCIDRs:    []string{testEgressCIDR},
 	}
 	err := k8sClient.Update(testCtx, fetched)
-	if err == nil || !strings.Contains(err.Error(), "nsxTier1Config cannot be added or removed once set") {
+	if err == nil || !strings.Contains(err.Error(), "the presence of nsxTier1Config is immutable once the resource is created (cannot transition between inherit and override modes post-creation)") {
 		t.Fatalf("expected rejection for adding nsxTier1Config online, got: %v", err)
 	}
 }
@@ -1847,5 +1847,21 @@ func TestNamespaceNetworkConfiguration_NSXTier1MutualExclusion(t *testing.T) {
 	}
 	if err := k8sClient.Create(testCtx, nnc3); err == nil || !strings.Contains(err.Error(), "nsxTier1Config must not be populated when type is not nsx-tier1") {
 		t.Fatalf("expected rejection, got: %v", err)
+	}
+
+	// 4. Populating vpcConfig with only defaultSubnetSize (the loophole) when type is nsx-tier1
+	nnc4 := &netv1alpha1.NamespaceNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mut-vpc-loophole-when-t1"},
+		Spec: netv1alpha1.NamespaceNetworkSpec{
+			Type: netv1alpha1.NetworkProviderNSXTier1,
+			NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+				VPCConfig: netv1alpha1.VPCConfig{
+					DefaultSubnetSize: 64,
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, nnc4); err == nil || !strings.Contains(err.Error(), "vpcConfig must not be populated when type is not vpc") {
+		t.Fatalf("expected rejection for partial vpcConfig when type is nsx-tier1, got: %v", err)
 	}
 }

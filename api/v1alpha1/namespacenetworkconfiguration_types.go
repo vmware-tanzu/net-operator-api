@@ -410,7 +410,7 @@ type NamespaceNetworkConfig struct {
 	// the cluster-level NSX Container Plugin (NCP) configuration in inherit mode. When present,
 	// the fields here override those cluster-level defaults for this namespace in override mode, and
 	// a dedicated physical NSX Tier-1 Gateway is provisioned for the namespace.
-	// This field cannot be added or removed once set.
+	// The presence of this field is immutable once the resource is created (it cannot be added if absent at creation, and cannot be removed if present at creation).
 	//
 	// +optional
 	NSXTier1Config *NSXTier1Config `json:"nsxTier1Config,omitempty,omitzero"`
@@ -430,10 +430,10 @@ type NamespaceNetworkConfig struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || self.type == 'vpc' || self.type == 'nsx-tier1'",message="type must be one of: vsphere-distributed, vpc, nsx-tier1"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' ? (has(self.vsphereDistributedConfig) && has(self.vsphereDistributedConfig.networks) && self.vsphereDistributedConfig.networks.size() > 0) : true",message="vsphereDistributedConfig.networks must contain at least one entry when type is vsphere-distributed"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vpc' ? (has(self.vpcConfig) && ((has(self.vpcConfig.vpc) && self.vpcConfig.vpc != '') || has(self.vpcConfig.autoCreateConfig))) : true",message="vpcConfig must have either vpc (pre-created VPC mode) or autoCreateConfig (auto-create VPC mode) set when type is vpc"
-// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.vsphereDistributedConfig) || !has(self.vsphereDistributedConfig.networks) || self.vsphereDistributedConfig.networks.size() == 0",message="vsphereDistributedConfig must not be populated when type is not vsphere-distributed"
-// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.vpcConfig) || ((!has(self.vpcConfig.vpc) || self.vpcConfig.vpc == '') && !has(self.vpcConfig.autoCreateConfig))",message="vpcConfig must not be populated when type is not vpc"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vsphere-distributed' || !has(self.vsphereDistributedConfig)",message="vsphereDistributedConfig must not be populated when type is not vsphere-distributed"
+// +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.vpcConfig)",message="vpcConfig must not be populated when type is not vpc"
 // +kubebuilder:validation:XValidation:rule="self.type == 'nsx-tier1' || !has(self.nsxTier1Config)",message="nsxTier1Config must not be populated when type is not nsx-tier1"
-// +kubebuilder:validation:XValidation:rule="has(self.nsxTier1Config) == has(oldSelf.nsxTier1Config)",message="nsxTier1Config cannot be added or removed once set"
+// +kubebuilder:validation:XValidation:rule="has(self.nsxTier1Config) == has(oldSelf.nsxTier1Config)",message="the presence of nsxTier1Config is immutable once the resource is created (cannot transition between inherit and override modes post-creation)"
 type NamespaceNetworkSpec struct {
 	// type selects the network provider for this configuration and determines
 	// which provider-specific config section must be populated.

@@ -339,9 +339,9 @@ const (
 // When present, the fields here override those defaults for this namespace in override mode.
 //
 // +kubebuilder:validation:XValidation:rule="!has(self.routingMode) || self.routingMode != 'Routed' || !has(self.egressCIDRs) || self.egressCIDRs.size() == 0",message="egressCIDRs must not be set when routingMode is Routed"
-// +kubebuilder:validation:XValidation:rule="!((has(self.tier0Gateway) && self.tier0Gateway != '') || (has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0) || (has(self.egressCIDRs) && self.egressCIDRs.size() > 0)) || (has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0)",message="namespaceCIDRs must be set when tier0Gateway, ingressCIDRs, or egressCIDRs are specified"
-// +kubebuilder:validation:XValidation:rule="!((has(self.tier0Gateway) && self.tier0Gateway != '') || (has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0) || (has(self.egressCIDRs) && self.egressCIDRs.size() > 0)) || (has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0)",message="ingressCIDRs must be set when tier0Gateway, namespaceCIDRs, or egressCIDRs are specified"
-// +kubebuilder:validation:XValidation:rule="(!has(self.routingMode) || self.routingMode == 'NAT') && ((has(self.tier0Gateway) && self.tier0Gateway != '') || (has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0) || (has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0)) ? (has(self.egressCIDRs) && self.egressCIDRs.size() > 0) : true",message="egressCIDRs must be set when routingMode is NAT and tier0Gateway, namespaceCIDRs, or ingressCIDRs are specified"
+// +kubebuilder:validation:XValidation:rule="!((has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0) || (has(self.egressCIDRs) && self.egressCIDRs.size() > 0)) || (has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0)",message="namespaceCIDRs must be set when ingressCIDRs, or egressCIDRs are specified"
+// +kubebuilder:validation:XValidation:rule="!((has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0) || (has(self.egressCIDRs) && self.egressCIDRs.size() > 0)) || (has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0)",message="ingressCIDRs must be set when namespaceCIDRs, or egressCIDRs are specified"
+// +kubebuilder:validation:XValidation:rule="(!has(self.routingMode) || self.routingMode == 'NAT') && ((has(self.namespaceCIDRs) && self.namespaceCIDRs.size() > 0) || (has(self.ingressCIDRs) && self.ingressCIDRs.size() > 0)) ? (has(self.egressCIDRs) && self.egressCIDRs.size() > 0) : true",message="egressCIDRs must be set when routingMode is NAT and namespaceCIDRs, or ingressCIDRs are specified"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.tier0Gateway) || self.tier0Gateway == oldSelf.tier0Gateway",message="tier0Gateway is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.routingMode) || self.routingMode == oldSelf.routingMode",message="routingMode is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.loadBalancerSize) || self.loadBalancerSize == oldSelf.loadBalancerSize",message="loadBalancerSize is immutable once set"
@@ -351,10 +351,14 @@ const (
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.subnetPrefixLength) || self.subnetPrefixLength == oldSelf.subnetPrefixLength",message="subnetPrefixLength is immutable once set"
 type NSXTier1Config struct {
 	// namespaceCIDRs specifies CIDR blocks from which Kubernetes allocates IP
-	// addresses for all workloads (such as Pods and VMs) that attach to the namespace.
-	// These ranges must not overlap with ingressCIDRs, egressCIDRs, or other services running in the datacenter.
-	// Required when tier0Gateway or any of ingressCIDRs or egressCIDRs are
-	// specified. This field is append-only; existing entries cannot be removed.
+	// addresses for all workloads (such as Pods and VMs) that attach to the
+	// namespace.
+	// These ranges must not overlap with ingressCIDRs, egressCIDRs, or other
+	// services running in the datacenter.
+	// Required when tier0Gateway differs from the cluster-level Tier-0 Gateway from
+	// the global NSX Container Plugin (NCP) configuration or any of ingressCIDRs or
+	// egressCIDRs are specified. This field is append-only; existing entries cannot
+	// be removed.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
@@ -366,8 +370,10 @@ type NSXTier1Config struct {
 	// ingressCIDRs specifies CIDR blocks from which NSX assigns IP addresses
 	// for Kubernetes Ingresses and Services of type LoadBalancer. These ranges
 	// must not overlap with namespaceCIDRs, egressCIDRs, or other services
-	// running in the datacenter. Required when tier0Gateway or any of
-	// namespaceCIDRs or egressCIDRs are specified. This field is append-only; existing entries cannot be removed.
+	// running in the datacenter. Required when tier0Gateway differs from the
+	// cluster-level Tier-0 Gateway from the global NSX Container Plugin (NCP)
+	// configuration or any of namespaceCIDRs or egressCIDRs are specified. This
+	// field is append-only; existing entries cannot be removed.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
@@ -378,8 +384,10 @@ type NSXTier1Config struct {
 
 	// egressCIDRs specifies CIDR blocks from which NSX assigns IPs used for
 	// SNAT from container IPs to external IPs. Must not be set when routingMode
-	// is Routed. Required when routingMode is NAT and tier0Gateway or any of
-	// namespaceCIDRs or ingressCIDRs are specified. This field is append-only; existing entries cannot be removed.
+	// is Routed. Required when routingMode is NAT, when tier0Gateway differs from
+	// the cluster-level Tier-0 Gateway from the global NSX Container Plugin (NCP)
+	// configuration, or any of namespaceCIDRs or ingressCIDRs are specified. This
+	// field is append-only; existing entries cannot be removed.
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16

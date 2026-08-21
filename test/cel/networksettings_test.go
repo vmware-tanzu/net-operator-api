@@ -11,6 +11,7 @@ import (
 	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // nsObj builds a NetworkSettings with only provider set (no prior transition).
@@ -232,5 +233,256 @@ func TestNetworkSettings_ProviderNSXTier1WithLegacySame_Rejected(t *testing.T) {
 	)
 	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "legacyProvider must differ from provider") {
 		t.Fatalf("expected rejection containing %q, got: %v", "legacyProvider must differ from provider", err)
+	}
+}
+
+// -----------------------------------------------------------------------
+// Status & WorkloadCapabilities CEL and schema validation
+// -----------------------------------------------------------------------
+
+func TestNetworkSettings_StatusWorkloadCapabilities_Admitted(t *testing.T) {
+	ensureNamespace(t, nsNamespace)
+	obj := nsObj("ns-status-valid", netv1alpha1.NetworkProviderVPC)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, obj); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	obj.Status = &netv1alpha1.NetworkSettingsStatus{
+		WorkloadCapabilities: []netv1alpha1.WorkloadCapability{
+			{
+				Type:                netv1alpha1.WorkloadTypeVKSCluster,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyIPv4, netv1alpha1.WorkloadIPFamilyIPv6, netv1alpha1.WorkloadIPFamilyDualStack},
+				DefaultIPFamily:     netv1alpha1.WorkloadIPFamilyDualStack,
+				Message:             "Full Dual-Stack, single-stack IPv4, and single-stack IPv6 are all supported.",
+			},
+			{
+				Type:                netv1alpha1.WorkloadTypePodVM,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyDualStack},
+				DefaultIPFamily:     netv1alpha1.WorkloadIPFamilyDualStack,
+			},
+			{
+				Type:                netv1alpha1.WorkloadTypeVirtualMachine,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyIPv4, netv1alpha1.WorkloadIPFamilyIPv6},
+				DefaultIPFamily:     netv1alpha1.WorkloadIPFamilyIPv4,
+			},
+		},
+	}
+	if err := k8sClient.Status().Update(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for status update, got: %v", err)
+	}
+}
+
+func TestNetworkSettings_StatusWorkloadCapabilities_VDS_Admitted(t *testing.T) {
+	ensureNamespace(t, nsNamespace)
+	obj := nsObj("ns-status-vds", netv1alpha1.NetworkProviderVSphereDistributed)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, obj); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	obj.Status = &netv1alpha1.NetworkSettingsStatus{
+		WorkloadCapabilities: []netv1alpha1.WorkloadCapability{
+			{
+				Type:                netv1alpha1.WorkloadTypeVKSCluster,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyIPv4},
+				DefaultIPFamily:     netv1alpha1.WorkloadIPFamilyIPv4,
+				Message:             "VDS topology currently only supports IPv4.",
+			},
+			{
+				Type:                netv1alpha1.WorkloadTypePodVM,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyIPv4},
+				DefaultIPFamily:     netv1alpha1.WorkloadIPFamilyIPv4,
+				Message:             "VDS topology currently only supports IPv4.",
+			},
+			{
+				Type:                netv1alpha1.WorkloadTypeVirtualMachine,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyIPv4},
+				DefaultIPFamily:     netv1alpha1.WorkloadIPFamilyIPv4,
+				Message:             "VDS topology currently only supports IPv4.",
+			},
+		},
+	}
+	if err := k8sClient.Status().Update(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for status update, got: %v", err)
+	}
+}
+
+func TestNetworkSettings_StatusWorkloadCapabilities_NSXTier1_Admitted(t *testing.T) {
+	ensureNamespace(t, nsNamespace)
+	obj := nsObj("ns-status-nsx", netv1alpha1.NetworkProviderNSXTier1)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, obj); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	obj.Status = &netv1alpha1.NetworkSettingsStatus{
+		WorkloadCapabilities: []netv1alpha1.WorkloadCapability{
+			{
+				Type:                netv1alpha1.WorkloadTypeVKSCluster,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyIPv4},
+				DefaultIPFamily:     netv1alpha1.WorkloadIPFamilyIPv4,
+				Message:             "NSX-T1 topology currently only supports IPv4.",
+			},
+		},
+	}
+	if err := k8sClient.Status().Update(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for status update, got: %v", err)
+	}
+}
+
+func TestNetworkSettings_StatusWorkloadCapabilities_SingleFamilyOptions_Admitted(t *testing.T) {
+	families := [][]string{
+		{netv1alpha1.WorkloadIPFamilyIPv4},
+		{netv1alpha1.WorkloadIPFamilyIPv6},
+		{netv1alpha1.WorkloadIPFamilyDualStack},
+	}
+	for _, fam := range families {
+		name := "ns-status-fam-" + strings.ToLower(fam[0])
+		ensureNamespace(t, nsNamespace)
+		obj := nsObj(name, netv1alpha1.NetworkProviderVPC)
+		if err := k8sClient.Create(testCtx, obj); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+		defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+		if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, obj); err != nil {
+			t.Fatalf("get: %v", err)
+		}
+
+		obj.Status = &netv1alpha1.NetworkSettingsStatus{
+			WorkloadCapabilities: []netv1alpha1.WorkloadCapability{
+				{
+					Type:                netv1alpha1.WorkloadTypeVKSCluster,
+					SupportedIPFamilies: fam,
+				},
+			},
+		}
+		if err := k8sClient.Status().Update(testCtx, obj); err != nil {
+			t.Fatalf("expected admission for family %v, got: %v", fam, err)
+		}
+	}
+}
+
+func TestNetworkSettings_StatusWorkloadCapabilities_InvalidIPFamily_Rejected(t *testing.T) {
+	ensureNamespace(t, nsNamespace)
+	obj := nsObj("ns-status-invalid-ipfam", netv1alpha1.NetworkProviderVPC)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, obj); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	obj.Status = &netv1alpha1.NetworkSettingsStatus{
+		WorkloadCapabilities: []netv1alpha1.WorkloadCapability{
+			{
+				Type:                netv1alpha1.WorkloadTypeVKSCluster,
+				SupportedIPFamilies: []string{"IPv5"},
+			},
+		},
+	}
+	if err := k8sClient.Status().Update(testCtx, obj); err == nil || !strings.Contains(err.Error(), "supportedIPFamilies must only contain 'IPv4', 'IPv6', or 'DualStack'") {
+		t.Fatalf("expected rejection containing %q, got: %v", "supportedIPFamilies must only contain 'IPv4', 'IPv6', or 'DualStack'", err)
+	}
+}
+
+func TestNetworkSettings_StatusWorkloadCapabilities_CaseSensitivity_Rejected(t *testing.T) {
+	ensureNamespace(t, nsNamespace)
+	obj := nsObj("ns-status-case-sens", netv1alpha1.NetworkProviderVPC)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, obj); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	obj.Status = &netv1alpha1.NetworkSettingsStatus{
+		WorkloadCapabilities: []netv1alpha1.WorkloadCapability{
+			{
+				Type:                netv1alpha1.WorkloadTypeVKSCluster,
+				SupportedIPFamilies: []string{"dualstack"},
+			},
+		},
+	}
+	if err := k8sClient.Status().Update(testCtx, obj); err == nil || !strings.Contains(err.Error(), "supportedIPFamilies must only contain 'IPv4', 'IPv6', or 'DualStack'") {
+		t.Fatalf("expected rejection containing %q, got: %v", "supportedIPFamilies must only contain 'IPv4', 'IPv6', or 'DualStack'", err)
+	}
+}
+
+func TestNetworkSettings_StatusWorkloadCapabilities_ExceedMaxItems_Rejected(t *testing.T) {
+	ensureNamespace(t, nsNamespace)
+	obj := nsObj("ns-status-max-items", netv1alpha1.NetworkProviderVPC)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, obj); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	obj.Status = &netv1alpha1.NetworkSettingsStatus{
+		WorkloadCapabilities: []netv1alpha1.WorkloadCapability{
+			{
+				Type:                netv1alpha1.WorkloadTypeVKSCluster,
+				SupportedIPFamilies: []string{netv1alpha1.WorkloadIPFamilyIPv4, netv1alpha1.WorkloadIPFamilyIPv6, netv1alpha1.WorkloadIPFamilyDualStack, netv1alpha1.WorkloadIPFamilyIPv4},
+			},
+		},
+	}
+	if err := k8sClient.Status().Update(testCtx, obj); err == nil || !isRejected(err) {
+		t.Fatalf("expected rejection exceeding maxItems, got: %v", err)
+	}
+}
+
+func TestNetworkSettings_StatusWorkloadCapabilities_DuplicateType_Rejected(t *testing.T) {
+	ensureNamespace(t, nsNamespace)
+	obj := nsObj("ns-status-dup-type", netv1alpha1.NetworkProviderVPC)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	unstr := &unstructured.Unstructured{}
+	unstr.SetAPIVersion(nsAPIVersion)
+	unstr.SetKind(nsKind)
+	unstr.SetName(obj.Name)
+	unstr.SetNamespace(nsNamespace)
+
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: obj.Name, Namespace: nsNamespace}, unstr); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	unstr.Object["status"] = map[string]interface{}{
+		"workloadCapabilities": []interface{}{
+			map[string]interface{}{
+				"type":                "vksCluster",
+				"supportedIPFamilies": []interface{}{"IPv4"},
+			},
+			map[string]interface{}{
+				"type":                "vksCluster",
+				"supportedIPFamilies": []interface{}{"IPv6"},
+			},
+		},
+	}
+
+	if err := k8sClient.Status().Update(testCtx, unstr); err == nil || !strings.Contains(err.Error(), "uplicate") {
+		t.Fatalf("expected rejection for duplicate workload capability type containing 'uplicate', got: %v", err)
 	}
 }

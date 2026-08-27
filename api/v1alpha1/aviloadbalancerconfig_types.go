@@ -50,7 +50,9 @@ type AviLoadBalancerConfigSpec struct {
 	// CloudName is used by the Avi Kubernetes Operator (AKO) when querying
 	// properties via the Avi REST API, ex. /api/cloud/?name=CLOUD_NAME.
 	// Defaults to Default-Cloud.
+	//
 	// +kubebuilder:default:=Default-Cloud
+	// +kubebuilder:validation:MinLength=1
 	CloudName string `json:"cloudName,omitempty"`
 
 	// AdvancedL4 is a flag that enables support for WCP in AKO.

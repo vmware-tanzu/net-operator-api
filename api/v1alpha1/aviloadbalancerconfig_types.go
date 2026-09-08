@@ -70,6 +70,14 @@ type AviLoadBalancerConfigSpec struct {
 	// +kubebuilder:validation:Enum=controller;supervisor
 	IPAMType AviLoadBalancerIPAMType `json:"ipamType,omitempty"`
 
+	// CertificateAuthorityData contains PEM-encoded certificate authority
+	// certificates used to verify the Avi Controller's TLS certificate.
+	// If empty, the certificate authority certificate stored in the Secret
+	// referenced by CredentialSecretRef will be used.
+	//
+	// +optional
+	CertificateAuthorityData string `json:"certificateAuthorityData,omitempty"`
+
 	// CredentialSecretRef points to a Secret resource used to access and
 	// configure the Avi Controller.
 	//

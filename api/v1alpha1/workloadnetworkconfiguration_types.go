@@ -73,6 +73,65 @@ type WorkloadNetworkConfigurationSpec struct {
 	//
 	// +required
 	ActiveSystemProvider NetworkProvider `json:"activeSystemProvider,omitempty"`
+
+	// services defines cluster-wide workload network services including workload network DNS and NTP.
+	//
+	// +optional
+	Services *WorkloadNetworkServicesConfig `json:"services,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="(has(self.dns) && ((has(self.dns.servers) && size(self.dns.servers) > 0) || has(self.dns.maxConcurrentForwards))) || (has(self.ntp) && has(self.ntp.servers) && size(self.ntp.servers) > 0)",message="at least one of dns or ntp must be configured with valid settings"
+
+// WorkloadNetworkServicesConfig defines configuration for workload DNS, forwarding, and NTP.
+type WorkloadNetworkServicesConfig struct {
+	// dns defines configuration for workload network DNS resolution and CoreDNS upstream forwarding.
+	//
+	// +optional
+	DNS *WorkloadDNSConfig `json:"dns,omitempty"`
+
+	// ntp defines configuration for default workload time synchronization.
+	//
+	// +optional
+	NTP *WorkloadNTPConfig `json:"ntp,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="(has(self.servers) && size(self.servers) > 0) || has(self.maxConcurrentForwards)",message="at least one of servers or maxConcurrentForwards must be specified"
+
+// WorkloadDNSConfig specifies upstream nameservers and CoreDNS concurrency tuning.
+type WorkloadDNSConfig struct {
+	// servers is a list of upstream DNS server IP addresses used by CoreDNS and guest workloads.
+	//
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=45
+	// +kubebuilder:validation:items:XValidation:rule="isIP(self)",message="each server must be a valid IPv4 or IPv6 address"
+	// +listType=set
+	Servers []string `json:"servers,omitempty"`
+
+	// maxConcurrentForwards specifies the maximum number of concurrent requests forwarded upstream by CoreDNS.
+	// When unset, defaults to 1000. 0 indicates unconstrained concurrency.
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=65535
+	MaxConcurrentForwards *int32 `json:"maxConcurrentForwards,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="has(self.servers) && size(self.servers) > 0",message="servers must be specified"
+
+// WorkloadNTPConfig specifies workload NTP time synchronization sources.
+type WorkloadNTPConfig struct {
+	// servers is a list of default NTP server hostnames (FQDN) or IP addresses for VM workloads.
+	//
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=253
+	// +listType=set
+	Servers []string `json:"servers,omitempty"`
 }
 
 // WorkloadNetworkConfigurationStatus defines the observed state of the WorkloadNetworkConfiguration.

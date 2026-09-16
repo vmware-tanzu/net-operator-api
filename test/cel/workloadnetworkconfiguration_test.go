@@ -401,3 +401,281 @@ func TestWorkloadNetworkConfiguration_ConditionStatusOutsideEnum_Rejected(t *tes
 		t.Fatalf("expected rejection containing %q, got: %v", "Unsupported value", err)
 	}
 }
+
+// -----------------------------------------------------------------------
+// Services (DNS & NTP)
+// spec.services: +optional
+// spec.services.dns: +optional
+// spec.services.dns.maxConcurrentForwards: +optional, Minimum=0, Maximum=65535
+// spec.services.dns.servers: +optional, MinItems=1, MaxItems=10, items:MinLength=1, items:MaxLength=45, listType=set, isIP(self)
+// spec.services.ntp: +optional
+// spec.services.ntp.servers: +required, MinItems=1, MaxItems=10, items:MinLength=1, items:MaxLength=253, listType=set
+// -----------------------------------------------------------------------
+
+func TestWorkloadNetworkConfiguration_Services_Admitted(t *testing.T) {
+	maxForwards1000 := int32(1000)
+	maxForwards0 := int32(0)
+	maxForwards65535 := int32(65535)
+
+	tests := []struct {
+		name     string
+		services *netv1alpha1.WorkloadNetworkServicesConfig
+	}{
+		{
+			name: "full services config with dns and ntp",
+			services: &netv1alpha1.WorkloadNetworkServicesConfig{
+				DNS: &netv1alpha1.WorkloadDNSConfig{
+					Servers:               []string{"10.100.1.10", "10.100.1.11"},
+					MaxConcurrentForwards: &maxForwards1000,
+				},
+				NTP: &netv1alpha1.WorkloadNTPConfig{
+					Servers: []string{"ntp.corp.internal", "10.100.1.50"},
+				},
+			},
+		},
+		{
+			name: "minimal services with only dns",
+			services: &netv1alpha1.WorkloadNetworkServicesConfig{
+				DNS: &netv1alpha1.WorkloadDNSConfig{
+					Servers: []string{"10.100.1.10"},
+				},
+			},
+		},
+		{
+			name: "minimal services with only ntp",
+			services: &netv1alpha1.WorkloadNetworkServicesConfig{
+				NTP: &netv1alpha1.WorkloadNTPConfig{
+					Servers: []string{"ntp.corp.internal"},
+				},
+			},
+		},
+		{
+			name: "dns with maxConcurrentForwards set to 0 (unconstrained)",
+			services: &netv1alpha1.WorkloadNetworkServicesConfig{
+				DNS: &netv1alpha1.WorkloadDNSConfig{
+					MaxConcurrentForwards: &maxForwards0,
+				},
+			},
+		},
+		{
+			name: "dns with maxConcurrentForwards set to 65535 (maximum)",
+			services: &netv1alpha1.WorkloadNetworkServicesConfig{
+				DNS: &netv1alpha1.WorkloadDNSConfig{
+					MaxConcurrentForwards: &maxForwards65535,
+				},
+			},
+		},
+		{
+			name: "services with IPv6 DNS and NTP servers",
+			services: &netv1alpha1.WorkloadNetworkServicesConfig{
+				DNS: &netv1alpha1.WorkloadDNSConfig{
+					Servers: []string{"2001:db8::1", "2001:db8::2"},
+				},
+				NTP: &netv1alpha1.WorkloadNTPConfig{
+					Servers: []string{"time.nist.gov", "2001:db8::10"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wnc := vdsWNC()
+			wnc.Spec.Services = tt.services
+			if err := k8sClient.Create(testCtx, wnc); err != nil {
+				t.Fatalf("expected admission, got: %v", err)
+			}
+			_ = k8sClient.Delete(testCtx, wnc)
+		})
+	}
+}
+
+func TestWorkloadNetworkConfiguration_EmptyServices_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"providers":            []interface{}{vdsProviderEntry(wncSystemNetName)},
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVSphereDistributed),
+		"services":             map[string]interface{}{},
+	})
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "at least one of dns or ntp must be configured") {
+		t.Fatalf("expected rejection containing %q, got: %v", "at least one of dns or ntp must be configured", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_EmptyDNSAndNTPObjects_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"providers":            []interface{}{vdsProviderEntry(wncSystemNetName)},
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVSphereDistributed),
+		"services": map[string]interface{}{
+			"dns": map[string]interface{}{},
+			"ntp": map[string]interface{}{},
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); err == nil || (!strings.Contains(err.Error(), "at least one of") && !strings.Contains(err.Error(), "servers") && !strings.Contains(err.Error(), "Required value")) {
+		t.Fatalf("expected rejection containing 'at least one of' or 'Required value', got: %v", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_EmptyDNS_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"providers":            []interface{}{vdsProviderEntry(wncSystemNetName)},
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVSphereDistributed),
+		"services": map[string]interface{}{
+			"dns": map[string]interface{}{},
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "at least one of") {
+		t.Fatalf("expected rejection containing %q, got: %v", "at least one of", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_EmptyNTP_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"providers":            []interface{}{vdsProviderEntry(wncSystemNetName)},
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVSphereDistributed),
+		"services": map[string]interface{}{
+			"ntp": map[string]interface{}{},
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); err == nil || (!strings.Contains(err.Error(), "servers") && !strings.Contains(err.Error(), "at least one of")) {
+		t.Fatalf("expected rejection containing 'servers' or 'at least one of', got: %v", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_NegativeMaxConcurrentForwards_Rejected(t *testing.T) {
+	negativeVal := int32(-1)
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		DNS: &netv1alpha1.WorkloadDNSConfig{
+			MaxConcurrentForwards: &negativeVal,
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "greater than or equal to 0") {
+		t.Fatalf("expected rejection containing %q, got: %v", "greater than or equal to 0", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_ExcessiveMaxConcurrentForwards_Rejected(t *testing.T) {
+	excessiveVal := int32(65536)
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		DNS: &netv1alpha1.WorkloadDNSConfig{
+			MaxConcurrentForwards: &excessiveVal,
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "less than or equal to 65535") {
+		t.Fatalf("expected rejection containing %q, got: %v", "less than or equal to 65535", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_InvalidDNSServerIP_Rejected(t *testing.T) {
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		DNS: &netv1alpha1.WorkloadDNSConfig{
+			Servers: []string{"not-an-ip"},
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "valid IPv4 or IPv6 address") {
+		t.Fatalf("expected rejection containing %q, got: %v", "valid IPv4 or IPv6 address", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_EmptyDNSServersList_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"providers":            []interface{}{vdsProviderEntry(wncSystemNetName)},
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVSphereDistributed),
+		"services": map[string]interface{}{
+			"dns": map[string]interface{}{
+				"servers": []interface{}{},
+			},
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "at least 1") {
+		t.Fatalf("expected rejection containing %q, got: %v", "at least 1", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_DuplicateDNSServers_Rejected(t *testing.T) {
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		DNS: &netv1alpha1.WorkloadDNSConfig{
+			Servers: []string{"10.100.1.10", "10.100.1.10"},
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "uplicate") {
+		t.Fatalf("expected rejection containing %q, got: %v", "uplicate", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_ExcessiveDNSServers_Rejected(t *testing.T) {
+	servers := []string{
+		"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5",
+		"10.0.0.6", "10.0.0.7", "10.0.0.8", "10.0.0.9", "10.0.0.10", "10.0.0.11",
+	}
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		DNS: &netv1alpha1.WorkloadDNSConfig{
+			Servers: servers,
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "at most 10") {
+		t.Fatalf("expected rejection containing %q, got: %v", "at most 10", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_EmptyNTPServersList_Rejected(t *testing.T) {
+	obj := unstrWNC(wncDefaultName, map[string]interface{}{
+		"providers":            []interface{}{vdsProviderEntry(wncSystemNetName)},
+		"activeSystemProvider": string(netv1alpha1.NetworkProviderVSphereDistributed),
+		"services": map[string]interface{}{
+			"ntp": map[string]interface{}{
+				"servers": []interface{}{},
+			},
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); err == nil || (!strings.Contains(err.Error(), "at least 1") && !strings.Contains(err.Error(), "servers must be specified")) {
+		t.Fatalf("expected rejection containing 'at least 1' or 'servers must be specified', got: %v", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_DuplicateNTPServers_Rejected(t *testing.T) {
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		NTP: &netv1alpha1.WorkloadNTPConfig{
+			Servers: []string{"ntp.corp.internal", "ntp.corp.internal"},
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "uplicate") {
+		t.Fatalf("expected rejection containing %q, got: %v", "uplicate", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_ExcessiveNTPServers_Rejected(t *testing.T) {
+	servers := []string{
+		"ntp1.corp.internal", "ntp2.corp.internal", "ntp3.corp.internal", "ntp4.corp.internal",
+		"ntp5.corp.internal", "ntp6.corp.internal", "ntp7.corp.internal", "ntp8.corp.internal",
+		"ntp9.corp.internal", "ntp10.corp.internal", "ntp11.corp.internal",
+	}
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		NTP: &netv1alpha1.WorkloadNTPConfig{
+			Servers: servers,
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "at most 10") {
+		t.Fatalf("expected rejection containing %q, got: %v", "at most 10", err)
+	}
+}
+
+func TestWorkloadNetworkConfiguration_NTPServerItemTooLong_Rejected(t *testing.T) {
+	longHostname := strings.Repeat("a", 254)
+	wnc := vdsWNC()
+	wnc.Spec.Services = &netv1alpha1.WorkloadNetworkServicesConfig{
+		NTP: &netv1alpha1.WorkloadNTPConfig{
+			Servers: []string{longHostname},
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err == nil || !strings.Contains(err.Error(), "253") {
+		t.Fatalf("expected rejection containing %q, got: %v", "253", err)
+	}
+}
+

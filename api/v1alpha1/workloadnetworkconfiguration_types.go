@@ -73,6 +73,89 @@ type WorkloadNetworkConfigurationSpec struct {
 	//
 	// +required
 	ActiveSystemProvider NetworkProvider `json:"activeSystemProvider,omitempty"`
+
+	// services defines cluster-wide workload network services including workload network DNS and NTP.
+	//
+	// In Supervisor 2.0, these services configure:
+	// - Upstream DNS resolution and forward concurrency tuning for in-cluster CoreDNS (via CoreDNS addon).
+	// - Upstream DNS nameservers and NTP servers for VM Service VMs and guest workloads (via vm-operator).
+	//
+	// When unset or omitted, default cluster networking applies: CoreDNS forwards queries to the host
+	// resolver (/etc/resolv.conf) without forwarding concurrency limits, and vm-operator does not
+	// inject custom DNS or NTP configurations into VM metadata.
+	//
+	// +optional
+	Services *WorkloadNetworkServicesConfig `json:"services,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="(has(self.dns) && ((has(self.dns.servers) && size(self.dns.servers) > 0) || has(self.dns.maxConcurrentForwards))) || (has(self.ntp) && has(self.ntp.servers) && size(self.ntp.servers) > 0)",message="at least one of dns or ntp must be configured with valid settings"
+
+// WorkloadNetworkServicesConfig defines configuration for workload DNS, forwarding, and NTP.
+type WorkloadNetworkServicesConfig struct {
+	// dns defines configuration for workload network DNS resolution and CoreDNS upstream forwarding.
+	// It is consumed by CoreDNS to configure upstream forwarders and query concurrency, and by
+	// vm-operator to configure DNS nameservers for VM Service VMs and guest workloads.
+	// When unset or omitted, CoreDNS forwards queries to /etc/resolv.conf without concurrency limits,
+	// and vm-operator does not inject custom DNS servers.
+	//
+	// +optional
+	DNS *WorkloadDNSConfig `json:"dns,omitempty"`
+
+	// ntp defines configuration for default workload time synchronization.
+	// It is consumed by vm-operator to configure NTP time servers for VM Service VMs and guest workloads.
+	// When unset or omitted, vm-operator does not configure NTP servers, and workloads rely on
+	// VMware Tools / ESXi host time synchronization or guest OS defaults.
+	//
+	// +optional
+	NTP *WorkloadNTPConfig `json:"ntp,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="(has(self.servers) && size(self.servers) > 0) || has(self.maxConcurrentForwards)",message="at least one of servers or maxConcurrentForwards must be specified"
+
+// WorkloadDNSConfig specifies upstream nameservers and CoreDNS concurrency tuning.
+type WorkloadDNSConfig struct {
+	// servers is a list of upstream DNS server IP addresses used by CoreDNS and guest workloads.
+	// These servers are programmed into the CoreDNS Corefile forward plugin and injected into VM Service
+	// VM metadata by vm-operator.
+	// When unset or omitted, CoreDNS falls back to forwarding queries to the host resolver (/etc/resolv.conf),
+	// avoiding Corefile syntax errors, and vm-operator does not inject custom DNS servers into VM metadata.
+	//
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=45
+	// +kubebuilder:validation:items:XValidation:rule="isIP(self)",message="each server must be a valid IPv4 or IPv6 address"
+	// +listType=set
+	Servers []string `json:"servers,omitempty"`
+
+	// maxConcurrentForwards specifies the maximum number of concurrent requests forwarded upstream by CoreDNS
+	// before returning SERVFAIL.
+	// When unset, there is no default value (CoreDNS forward plugin does not enforce a concurrency limit).
+	// 0 indicates unconstrained concurrency.
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=65535
+	MaxConcurrentForwards *int32 `json:"maxConcurrentForwards,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="has(self.servers) && size(self.servers) > 0",message="servers must be specified"
+
+// WorkloadNTPConfig specifies workload NTP time synchronization sources.
+type WorkloadNTPConfig struct {
+	// servers is a list of default NTP server hostnames (FQDN) or IP addresses for VM workloads.
+	// These servers are injected into VM Service VMs and guest workloads via vm-operator cloud-init metadata.
+	// When unset or omitted (or when the enclosing ntp object is omitted), vm-operator does not configure NTP
+	// servers, and workloads fall back to VMware Tools / ESXi host time synchronization or guest OS defaults.
+	//
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=253
+	// +listType=set
+	Servers []string `json:"servers,omitempty"`
 }
 
 // WorkloadNetworkConfigurationStatus defines the observed state of the WorkloadNetworkConfiguration.

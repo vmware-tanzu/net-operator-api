@@ -6,6 +6,7 @@ package cel_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -587,6 +588,114 @@ func TestNamespaceNetworkConfiguration_VPCDefaultSubnetSize131072_Rejected(t *te
 	}
 }
 
+// -----------------------------------------------------------------------
+// VPC Config — defaultIPv6PrefixLength
+// min=2, max=127
+// -----------------------------------------------------------------------
+
+func TestNamespaceNetworkConfiguration_VPCDefaultIPv6PrefixLengthUnset_Admitted(t *testing.T) {
+	obj := vpcNNC("test-vpc-unset-ipv6-prefix", testVPCPath)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	fetched := &netv1alpha1.NamespaceNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: "test-vpc-unset-ipv6-prefix"}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if fetched.Spec.VPCConfig.DefaultIPv6PrefixLength != 0 {
+		t.Fatalf("expected defaultIPv6PrefixLength to remain 0 (unset) when omitted, got: %d", fetched.Spec.VPCConfig.DefaultIPv6PrefixLength)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_VPCDefaultIPv6PrefixLengthCustomValid_Admitted(t *testing.T) {
+	testCases := []struct {
+		name   string
+		prefix int32
+	}{
+		{name: "min prefix length 2", prefix: 2},
+		{name: "typical prefix length 56", prefix: 56},
+		{name: "standard prefix length 64", prefix: 64},
+		{name: "max prefix length 127", prefix: 127},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			name := fmt.Sprintf("test-vpc-prefix-%d", tc.prefix)
+			obj := vpcNNC(name, testVPCPath)
+			obj.Spec.VPCConfig.DefaultIPv6PrefixLength = tc.prefix
+			if err := k8sClient.Create(testCtx, obj); err != nil {
+				t.Fatalf("expected prefix %d to be admitted, got: %v", tc.prefix, err)
+			}
+			defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+		})
+	}
+}
+
+func TestNamespaceNetworkConfiguration_VPCDefaultIPv6PrefixLengthUpdate_Admitted(t *testing.T) {
+	obj := vpcNNC("test-vpc-prefix-update", testVPCPath)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	fetched := &netv1alpha1.NamespaceNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: "test-vpc-prefix-update"}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	fetched.Spec.VPCConfig.DefaultIPv6PrefixLength = 56
+	if err := k8sClient.Update(testCtx, fetched); err != nil {
+		t.Fatalf("expected update to prefix 56 to succeed, got: %v", err)
+	}
+
+	updated := &netv1alpha1.NamespaceNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: "test-vpc-prefix-update"}, updated); err != nil {
+		t.Fatalf("get updated: %v", err)
+	}
+	if updated.Spec.VPCConfig.DefaultIPv6PrefixLength != 56 {
+		t.Fatalf("expected prefix 56 after update, got: %v", updated.Spec.VPCConfig.DefaultIPv6PrefixLength)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_VPCDefaultIPv6PrefixLength0_Rejected(t *testing.T) {
+	obj := unstrNNC("test-vpc-prefix-0", map[string]interface{}{
+		"type": providerVPC,
+		"vpcConfig": map[string]interface{}{
+			"vpc":                     testVPCPath,
+			"defaultIPv6PrefixLength": int64(0),
+		},
+	})
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "defaultIPv6PrefixLength") {
+		t.Fatalf("expected rejection containing %q, got: %v", "defaultIPv6PrefixLength", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_VPCDefaultIPv6PrefixLength1_Rejected(t *testing.T) {
+	obj := vpcNNC("test-vpc-prefix-1", testVPCPath)
+	obj.Spec.VPCConfig.DefaultIPv6PrefixLength = 1
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "defaultIPv6PrefixLength") {
+		t.Fatalf("expected rejection containing %q, got: %v", "defaultIPv6PrefixLength", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_VPCDefaultIPv6PrefixLength128_Rejected(t *testing.T) {
+	obj := vpcNNC("test-vpc-prefix-128", testVPCPath)
+	obj.Spec.VPCConfig.DefaultIPv6PrefixLength = 128
+	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "defaultIPv6PrefixLength") {
+		t.Fatalf("expected rejection containing %q, got: %v", "defaultIPv6PrefixLength", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_VPCBackwardCompatibility_DefaultSubnetSizeOnly_Admitted(t *testing.T) {
+	obj := vpcNNC("test-vpc-backward-compat", testVPCPath)
+	obj.Spec.VPCConfig.DefaultSubnetSize = 32
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for legacy NNC with only defaultSubnetSize: 32, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+}
+
 func TestNamespaceNetworkConfiguration_VPC32SharedSubnets_Admitted(t *testing.T) {
 	obj := vpcNNC("test-vpc-32-subnets", testVPCPath)
 	subnets := make([]netv1alpha1.SharedSubnet, 32)
@@ -911,19 +1020,103 @@ func TestNamespaceNetworkConfiguration_AutoCreate17PrivateCIDRs_Rejected(t *test
 	}
 }
 
-func TestNamespaceNetworkConfiguration_AutoCreatePrivateCIDRNotCIDR_Rejected(t *testing.T) {
-	obj := unstrNNC("test-vpc-auto-bad-cidr", map[string]interface{}{
-		"type": providerVPC,
-		"vpcConfig": map[string]interface{}{
-			"autoCreateConfig": map[string]interface{}{
-				"nsxProject":             testNSXProject,
-				"vpcConnectivityProfile": testVPCConnProfile,
-				"privateCIDRs":           []interface{}{"not-a-cidr"},
-			},
-		},
-	})
-	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "privateCIDRs") {
-		t.Fatalf("expected rejection containing %q, got: %v", "privateCIDRs", err)
+func TestNamespaceNetworkConfiguration_AutoCreateIPv4PrivateCIDRs_Admitted(t *testing.T) {
+	nnc := autoVpcNNC("test-vpc-auto-ipv4-cidrs", testNSXProject, testVPCConnProfile)
+	nnc.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs = []string{"10.0.0.0/16", "192.168.1.0/24"}
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("expected admission for valid IPv4 CIDRs, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
+}
+
+func TestNamespaceNetworkConfiguration_AutoCreateIPv6PrivateCIDRs_Admitted(t *testing.T) {
+	nnc := autoVpcNNC("test-vpc-auto-ipv6-cidrs", testNSXProject, testVPCConnProfile)
+	nnc.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs = []string{"fd00:100:64::/48", "2001:db8:1::/64"}
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("expected admission for valid IPv6 CIDRs, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
+}
+
+func TestNamespaceNetworkConfiguration_AutoCreateDualStackPrivateCIDRs_Admitted(t *testing.T) {
+	nnc := autoVpcNNC("test-vpc-auto-dualstack-cidrs", testNSXProject, testVPCConnProfile)
+	nnc.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs = []string{"10.0.0.0/16", "fd00:100:64::/48"}
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("expected admission for dual-stack CIDRs, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
+}
+
+func TestNamespaceNetworkConfiguration_AutoCreateFullDualStack_Admitted(t *testing.T) {
+	nnc := autoVpcNNC("test-vpc-auto-full-dualstack", testNSXProject, testVPCConnProfile)
+	nnc.Spec.VPCConfig.DefaultSubnetSize = 32
+	nnc.Spec.VPCConfig.DefaultIPv6PrefixLength = 64
+	nnc.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs = []string{"10.0.0.0/16", "fd00:100:64::/48"}
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("expected admission for full dual-stack VPC configuration, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
+}
+
+func TestNamespaceNetworkConfiguration_AutoCreatePrivateCIDR_PatternRejected(t *testing.T) {
+	testCases := []struct {
+		name string
+		cidr string
+	}{
+		{name: "not a CIDR string", cidr: "not-a-cidr"},
+		{name: "empty string", cidr: ""},
+		{name: "plain IPv4 without prefix mask", cidr: "10.0.0.1"},
+		{name: "plain IPv6 without prefix mask", cidr: "fd00::1"},
+		{name: "invalid IPv6 characters", cidr: "2001:xyz::/64"},
+	}
+	for i, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := unstrNNC(fmt.Sprintf("test-vpc-bad-pattern-%d", i), map[string]interface{}{
+				"type": providerVPC,
+				"vpcConfig": map[string]interface{}{
+					"autoCreateConfig": map[string]interface{}{
+						"nsxProject":             testNSXProject,
+						"vpcConnectivityProfile": testVPCConnProfile,
+						"privateCIDRs":           []interface{}{tc.cidr},
+					},
+				},
+			})
+			err := k8sClient.Create(testCtx, obj)
+			if err == nil || !strings.Contains(err.Error(), "should match") {
+				t.Fatalf("expected schema pattern rejection containing %q, got: %v", "should match", err)
+			}
+		})
+	}
+}
+
+func TestNamespaceNetworkConfiguration_AutoCreatePrivateCIDR_CELRFCRejected(t *testing.T) {
+	// These values pass the OpenAPI regex pattern but fail RFC compliance checked by isCIDR().
+	testCases := []struct {
+		name string
+		cidr string
+	}{
+		{name: "invalid IPv4 octet > 255", cidr: "10.0.0.999/24"},
+		{name: "all octets > 255", cidr: "999.999.999.999/24"},
+		{name: "IPv4 prefix length out of range", cidr: "10.0.0.0/33"},
+		{name: "IPv6 prefix length out of range", cidr: "2001:db8::/129"},
+	}
+	for i, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := unstrNNC(fmt.Sprintf("test-vpc-bad-rfc-cidr-%d", i), map[string]interface{}{
+				"type": providerVPC,
+				"vpcConfig": map[string]interface{}{
+					"autoCreateConfig": map[string]interface{}{
+						"nsxProject":             testNSXProject,
+						"vpcConnectivityProfile": testVPCConnProfile,
+						"privateCIDRs":           []interface{}{tc.cidr},
+					},
+				},
+			})
+			err := k8sClient.Create(testCtx, obj)
+			if err == nil || !strings.Contains(err.Error(), "all entries in privateCIDRs must be valid CIDRs") {
+				t.Fatalf("expected CEL rejection containing %q, got: %v", "all entries in privateCIDRs must be valid CIDRs", err)
+			}
+		})
 	}
 }
 
@@ -1048,6 +1241,38 @@ func TestNamespaceNetworkConfiguration_PrivateCIDRsAppend_Admitted(t *testing.T)
 	)
 	if err := k8sClient.Update(testCtx, fetched); err != nil {
 		t.Fatalf("expected admission, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_PrivateCIDRsAppendIPv6_Admitted(t *testing.T) {
+	nnc := autoVpcNNC("test-vpc-cidr-append-ipv6", testNSXProject, testVPCConnProfile)
+	nnc.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs = []string{"10.0.0.0/16"}
+	if err := k8sClient.Create(testCtx, nnc); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, nnc) }()
+
+	fetched := &netv1alpha1.NamespaceNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: "test-vpc-cidr-append-ipv6"}, fetched); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	fetched.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs = append(
+		fetched.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs,
+		"fd00:100:64::/48",
+	)
+	if err := k8sClient.Update(testCtx, fetched); err != nil {
+		t.Fatalf("expected dual-stack append of IPv6 CIDR to succeed, got: %v", err)
+	}
+
+	updated := &netv1alpha1.NamespaceNetworkConfiguration{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: "test-vpc-cidr-append-ipv6"}, updated); err != nil {
+		t.Fatalf("get updated: %v", err)
+	}
+	expectedCIDRs := []string{"10.0.0.0/16", "fd00:100:64::/48"}
+	actualCIDRs := updated.Spec.VPCConfig.AutoCreateConfig.PrivateCIDRs
+	if !slices.Equal(actualCIDRs, expectedCIDRs) {
+		t.Fatalf("expected privateCIDRs %v after update, got: %v", expectedCIDRs, actualCIDRs)
 	}
 }
 

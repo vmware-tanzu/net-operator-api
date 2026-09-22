@@ -97,8 +97,10 @@ type VSphereDistributedConfig struct {
 	// resolved by workloads that do not explicitly select a network.
 	//
 	// The referenced VSphereDistributedNetwork must not have an IP assignment
-	// mode of None; a network with no IP assignment cannot serve as a workload
-	// default.
+	// mode of None for both IPv4 and IPv6; a network with no IP assignment
+	// cannot serve as a workload default. If either IPv4 or IPv6 (or both)
+	// has IP assignment enabled (e.g. staticpool or dhcp), it is valid as a default
+	// network.
 	//
 	// This field is immutable once set and cannot be removed while Namespaces
 	// are associated with this NamespaceNetworkConfiguration.
@@ -217,7 +219,8 @@ type AutoCreateVPCConfig struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:validation:items:MaxLength=64
-	// +kubebuilder:validation:items:Pattern=`^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$`
+	// +kubebuilder:validation:items:Pattern=`^((([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2})|([0-9a-fA-F:]+/[0-9]{1,3}))$`
+	// +kubebuilder:validation:XValidation:rule="self.all(c, isCIDR(c))",message="all entries in privateCIDRs must be valid CIDRs"
 	// +listType=atomic
 	PrivateCIDRs []string `json:"privateCIDRs,omitempty"`
 }
@@ -227,10 +230,13 @@ type AutoCreateVPCConfig struct {
 // There are two mutually exclusive modes:
 //
 //  1. Pre-created VPC mode: Set vpc to reference an existing VPC. Only
-//     defaultSubnetSize and sharedSubnets take effect alongside vpc.
+//     defaultSubnetSize, defaultIPv6PrefixLength, and sharedSubnets take
+//     effect alongside vpc.
 //
 //  2. Auto-create VPC mode: Set autoCreateConfig to have a VPC automatically
-//     created and scoped to this namespace.
+//     created and scoped to this namespace. defaultSubnetSize and
+//     defaultIPv6PrefixLength configure the default sizes of Subnets across
+//     all access modes.
 //
 // +kubebuilder:validation:MinProperties=1
 // +kubebuilder:validation:XValidation:rule="!(has(self.vpc) && self.vpc != '' && has(self.autoCreateConfig))",message="vpc and autoCreateConfig are mutually exclusive; set vpc for pre-created VPC mode or autoCreateConfig for auto-create VPC mode"
@@ -273,7 +279,7 @@ type VPCConfig struct {
 	// +listMapKey=name
 	SharedSubnets []SharedSubnet `json:"sharedSubnets,omitempty"`
 
-	// defaultSubnetSize is the default size of Namespace Subnets, specified as
+	// defaultSubnetSize is the default size of IPv4 Namespace Subnets, specified as
 	// the number of IP addresses. Must be a power of 2 (e.g. 16, 32, 64, 128).
 	// When not set, defaults to 32 (equivalent to a /27 subnet).
 	//
@@ -282,6 +288,14 @@ type VPCConfig struct {
 	// +kubebuilder:validation:Maximum=65536
 	// +kubebuilder:validation:XValidation:rule="self == 0 || self in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]",message="defaultSubnetSize must be a power of 2 (e.g. 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)"
 	DefaultSubnetSize int32 `json:"defaultSubnetSize,omitempty"`
+
+	// defaultIPv6PrefixLength is the default prefix length of IPv6 Namespace Subnets.
+	// When not set, defaults to 64 in the underlying NSX VPC.
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=2
+	// +kubebuilder:validation:Maximum=127
+	DefaultIPv6PrefixLength int32 `json:"defaultIPv6PrefixLength,omitempty"`
 }
 
 // NSXLoadBalancerSize defines the load balancer size for an NSX-backed namespace.

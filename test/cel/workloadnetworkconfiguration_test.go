@@ -257,6 +257,34 @@ func TestWorkloadNetworkConfiguration_VPCEntryWithVPCConfig_Admitted(t *testing.
 	defer func() { _ = k8sClient.Delete(testCtx, wnc) }()
 }
 
+func TestWorkloadNetworkConfiguration_VPCEntryWithIPv6AndDualStack_Admitted(t *testing.T) {
+	wnc := &netv1alpha1.WorkloadNetworkConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: wncDefaultName},
+		Spec: netv1alpha1.WorkloadNetworkConfigurationSpec{
+			Providers: []netv1alpha1.NetworkProviderEntry{
+				{
+					Type: netv1alpha1.NetworkProviderVPC,
+					SystemConfiguration: &netv1alpha1.NamespaceNetworkConfig{
+						VPCConfig: netv1alpha1.VPCConfig{
+							DefaultIPv6PrefixLength: 64,
+							AutoCreateConfig: netv1alpha1.AutoCreateVPCConfig{
+								NSXProject:             "/infra/projects/proj-1",
+								VPCConnectivityProfile: "/infra/vpc-profiles/prof-1",
+								PrivateCIDRs:           []string{"10.0.0.0/16", "fd00:100:64::/48"},
+							},
+						},
+					},
+				},
+			},
+			ActiveSystemProvider: netv1alpha1.NetworkProviderVPC,
+		},
+	}
+	if err := k8sClient.Create(testCtx, wnc); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, wnc) }()
+}
+
 // -----------------------------------------------------------------------
 // activeSystemProvider
 // Rule: self.providers.exists(p, p.type == self.activeSystemProvider)

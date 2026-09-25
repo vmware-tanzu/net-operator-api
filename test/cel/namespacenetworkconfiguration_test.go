@@ -1767,7 +1767,7 @@ func TestNamespaceNetworkConfiguration_NSXTier1MissingNamespaceCIDR_Rejected(t *
 		},
 	}
 	err := k8sClient.Create(testCtx, nnc)
-	if err == nil || !strings.Contains(err.Error(), "namespaceCIDRs must be set when tier0Gateway, ingressCIDRs, or egressCIDRs are specified") {
+	if err == nil || !strings.Contains(err.Error(), "namespaceCIDRs must be set when ingressCIDRs, or egressCIDRs are specified") {
 		t.Fatalf("expected rejection, got: %v", err)
 	}
 }
@@ -1786,7 +1786,7 @@ func TestNamespaceNetworkConfiguration_NSXTier1MissingIngressCIDR_Rejected(t *te
 		},
 	}
 	err := k8sClient.Create(testCtx, nnc)
-	if err == nil || !strings.Contains(err.Error(), "ingressCIDRs must be set when tier0Gateway, namespaceCIDRs, or egressCIDRs are specified") {
+	if err == nil || !strings.Contains(err.Error(), "ingressCIDRs must be set when namespaceCIDRs, or egressCIDRs are specified") {
 		t.Fatalf("expected rejection, got: %v", err)
 	}
 }
@@ -1807,7 +1807,7 @@ func TestNamespaceNetworkConfiguration_NSXTier1MissingEgressCIDR_Rejected(t *tes
 		},
 	}
 	err := k8sClient.Create(testCtx, nnc)
-	if err == nil || !strings.Contains(err.Error(), "egressCIDRs must be set when routingMode is NAT and tier0Gateway, namespaceCIDRs, or ingressCIDRs are specified") {
+	if err == nil || !strings.Contains(err.Error(), "egressCIDRs must be set when routingMode is NAT and namespaceCIDRs, or ingressCIDRs are specified") {
 		t.Fatalf("expected rejection, got: %v", err)
 	}
 }

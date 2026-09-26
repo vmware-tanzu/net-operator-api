@@ -9,20 +9,39 @@ import (
 	"fmt"
 
 	netopv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
+	vpcv1alpha1 "github.com/vmware-tanzu/nsx-operator/pkg/apis/vpc/v1alpha1"
 
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// labeledObject constrains T to a pointer to U that also implements ctrlclient.Object,
+// allowing namespaceNetworkConfigurationOwner below to accept any such CRD type while
+// still supporting a nil check on T.
+type labeledObject[U any] interface {
+	*U
+	ctrlclient.Object
+}
+
+// namespaceNetworkConfigurationOwner returns the value of the ManagedByNNCLabelKey label on
+// obj, and whether the label is present.
+func namespaceNetworkConfigurationOwner[T labeledObject[U], U any](obj T) (string, bool) {
+	if obj == nil {
+		return "", false
+	}
+
+	owner, ok := obj.GetLabels()[netopv1alpha1.ManagedByNNCLabelKey]
+	return owner, ok
+}
+
+// ---------------------------------------------------------------------------
+// NamespaceNetworkConfiguration <-> Network
+// ---------------------------------------------------------------------------
 
 // NetworkNamespaceNetworkConfigurationOwner returns the corresponding NamespaceNetworkConfiguration
 // that manages this given Network, and a boolean indicating if the label is present.
 // If the boolean is false, this Network is not managed via a NamespaceNetworkConfiguration.
 func NetworkNamespaceNetworkConfigurationOwner(network *netopv1alpha1.Network) (string, bool) {
-	if network == nil {
-		return "", false
-	}
-
-	owner, ok := network.GetLabels()[netopv1alpha1.ManagedByNNCLabelKey]
-	return owner, ok
+	return namespaceNetworkConfigurationOwner(network)
 }
 
 // NetworksOwnedByNamespaceNetworkConfiguration retrieves a list of Network resources
@@ -56,4 +75,46 @@ func NetworksOwnedByNamespaceNetworkConfiguration(ctx context.Context, c ctrlcli
 	}
 
 	return networkList.Items, nil
+}
+
+// ---------------------------------------------------------------------------
+// NamespaceNetworkConfiguration <-> VPCNetworkConfiguration
+// ---------------------------------------------------------------------------
+
+// VPCNetworkConfigurationNamespaceNetworkConfigurationOwner returns the corresponding
+// NamespaceNetworkConfiguration that manages this given VPCNetworkConfiguration, and a boolean
+// indicating if the label is present. If the boolean is false, this VPCNetworkConfiguration is
+// not managed via a NamespaceNetworkConfiguration.
+func VPCNetworkConfigurationNamespaceNetworkConfigurationOwner(vpcNetCfg *vpcv1alpha1.VPCNetworkConfiguration) (string, bool) {
+	return namespaceNetworkConfigurationOwner(vpcNetCfg)
+}
+
+// VPCNetworkConfigurationOwnedByNamespaceNetworkConfiguration returns the VPCNetworkConfiguration
+// managed by the specified NamespaceNetworkConfiguration. VPCNetworkConfiguration is cluster-scoped,
+// so at most one is expected per NamespaceNetworkConfiguration.
+//
+// If no VPCNetworkConfiguration is found, it returns (nil, nil). This is not an error: it means
+// the NamespaceNetworkConfiguration has not yet been reconciled to a VPCNetworkConfiguration.
+//
+// If more than one VPCNetworkConfiguration is found, a *MultipleVPCNetworkConfigurationsError is
+// returned naming the offending VPCNetworkConfigurations, since this indicates a data-integrity
+// problem.
+func VPCNetworkConfigurationOwnedByNamespaceNetworkConfiguration(ctx context.Context, c ctrlclient.Client, nncName string) (*vpcv1alpha1.VPCNetworkConfiguration, error) {
+	var vpcNetCfgList vpcv1alpha1.VPCNetworkConfigurationList
+	if err := c.List(ctx, &vpcNetCfgList, ctrlclient.MatchingLabels{netopv1alpha1.ManagedByNNCLabelKey: nncName}); err != nil {
+		return nil, fmt.Errorf("error listing VPCNetworkConfigurations owned by NamespaceNetworkConfiguration '%s': %w", nncName, err)
+	}
+
+	switch len(vpcNetCfgList.Items) {
+	case 0:
+		return nil, nil
+	case 1:
+		return &vpcNetCfgList.Items[0], nil
+	default:
+		names := make([]string, 0, len(vpcNetCfgList.Items))
+		for _, item := range vpcNetCfgList.Items {
+			names = append(names, item.Name)
+		}
+		return nil, &MultipleVPCNetworkConfigurationsError{NNCName: nncName, VPCNetworkConfigurationNames: names}
+	}
 }

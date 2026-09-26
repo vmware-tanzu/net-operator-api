@@ -72,8 +72,16 @@ $(TOOLING_BINARIES):
 ## --------------------------------------
 
 .PHONY: modules
-modules: ## Validates the modules
+modules: modules-cel modules-sdk ## Validates the modules
 	go mod tidy
+
+.PHONY: modules-cel
+modules-cel:
+	cd test/cel && go mod tidy
+
+.PHONY: modules-sdk
+modules-sdk:
+	cd pkg/sdk && go mod tidy
 
 .PHONY: modules-download
 modules-download: ## Downloads and caches the modules
@@ -115,15 +123,19 @@ $(KUBE_APISERVER) $(ETCD):
 	$(MAKE) -C $(TOOLS_DIR) $(@F) KUBEBUILDER_K8S_VERSION=$(ENVTEST_K8S_VERSION)
 
 .PHONY: test
-test: test-unit test-cel ## Run all tests.
+test: test-unit test-cel test-sdk ## Run all tests.
 
 .PHONY: test-unit
-test-unit:
+test-unit: modules
 	go test -v ./... -count=1 -timeout 120s
 
 .PHONY: test-cel
-test-cel: generate-manifests $(KUBE_APISERVER) $(ETCD) ## Run CEL envtest integration tests (uses kube-apiserver+etcd from ENVTEST_K8S_VERSION)
-	cd test/cel && go test -v ./... -count=1 -timeout 120s 
+test-cel: modules-cel generate-manifests $(KUBE_APISERVER) $(ETCD) ## Run CEL envtest integration tests (uses kube-apiserver+etcd from ENVTEST_K8S_VERSION)
+	cd test/cel && go test -v ./... -count=1 -timeout 120s
+
+.PHONY: test-sdk
+test-sdk: modules-sdk ## Run pkg/sdk tests (separate module).
+	cd pkg/sdk && go test -v ./... -count=1 -timeout 120s
 
 ## --------------------------------------
 ##@ Linting

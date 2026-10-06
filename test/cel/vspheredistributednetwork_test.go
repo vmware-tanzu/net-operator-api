@@ -342,3 +342,125 @@ func TestVSphereDistributedNetwork_MacLearningPolicyInvalidLimitPolicy_Rejected(
 		t.Fatalf("expected rejection for invalid macLearningPolicy.limitPolicy, got: %v", err)
 	}
 }
+
+// --- portGroupIDs ---
+
+// pgVDS builds an unstructured VSphereDistributedNetwork with portGroupID dvportgroup-1 and
+// ipAssignmentMode dhcp (so no gateway/subnetMask is needed). When ids is nil, portGroupIDs is
+// left unset.
+func pgVDS(name string, ids []string) *unstructured.Unstructured {
+	extra := map[string]interface{}{"ipAssignmentMode": "dhcp"}
+	if ids != nil {
+		list := make([]interface{}, len(ids))
+		for i, id := range ids {
+			list[i] = id
+		}
+		extra["portGroupIDs"] = list
+	}
+	return unstrVDS(name, extra)
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsUnset_Admitted(t *testing.T) {
+	obj := pgVDS("vds-pgids-unset", nil)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsEmpty_Admitted(t *testing.T) {
+	obj := pgVDS("vds-pgids-empty", []string{})
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsPrimaryFirst_Admitted(t *testing.T) {
+	obj := pgVDS("vds-pgids-primary-first", []string{"dvportgroup-1", "dvportgroup-2"})
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	got := &netv1alpha1.VSphereDistributedNetwork{}
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: "vds-pgids-primary-first"}, got); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if ids := got.Spec.EffectivePortGroupIDs(); len(ids) != 2 || ids[0] != "dvportgroup-1" || ids[1] != "dvportgroup-2" {
+		t.Fatalf("expected stored order [dvportgroup-1 dvportgroup-2], got %v", ids)
+	}
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsPrimaryNotFirst_Rejected(t *testing.T) {
+	obj := pgVDS("vds-pgids-primary-not-first", []string{"dvportgroup-2", "dvportgroup-1"})
+	const msg = "portGroupIDs[0] must equal portGroupID when portGroupIDs is set"
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) || !strings.Contains(err.Error(), msg) {
+		t.Fatalf("expected rejection containing %q, got: %v", msg, err)
+	}
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsPrimaryMissing_Rejected(t *testing.T) {
+	obj := pgVDS("vds-pgids-primary-missing", []string{"dvportgroup-2", "dvportgroup-3"})
+	const msg = "portGroupIDs[0] must equal portGroupID when portGroupIDs is set"
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) || !strings.Contains(err.Error(), msg) {
+		t.Fatalf("expected rejection containing %q, got: %v", msg, err)
+	}
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsDuplicate_Rejected(t *testing.T) {
+	obj := pgVDS("vds-pgids-duplicate", []string{"dvportgroup-1", "dvportgroup-1"})
+	const msg = "portGroupIDs must not contain duplicate entries"
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) || !strings.Contains(err.Error(), msg) {
+		t.Fatalf("expected rejection containing %q, got: %v", msg, err)
+	}
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsAtMaxItems_Admitted(t *testing.T) {
+	ids := make([]string, 32)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("dvportgroup-%d", i+1)
+	}
+	obj := pgVDS("vds-pgids-max", ids)
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsTooMany_Rejected(t *testing.T) {
+	ids := make([]string, 33)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("dvportgroup-%d", i+1)
+	}
+	obj := pgVDS("vds-pgids-too-many", ids)
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) || !strings.Contains(err.Error(), "Too many") {
+		t.Fatalf("expected rejection containing %q, got: %v", "Too many", err)
+	}
+}
+
+func TestVSphereDistributedNetwork_PortGroupIDsItemTooLong_Rejected(t *testing.T) {
+	obj := pgVDS("vds-pgids-item-too-long", []string{"dvportgroup-1", strings.Repeat("a", 65)})
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) || !strings.Contains(err.Error(), "Too long") {
+		t.Fatalf("expected rejection containing %q, got: %v", "Too long", err)
+	}
+}
+
+// TestVSphereDistributedNetwork_UpdateWithoutPortGroupIDs_Admitted verifies that an object
+// written without portGroupIDs (as by a client built against an older API) stays updatable.
+func TestVSphereDistributedNetwork_UpdateWithoutPortGroupIDs_Admitted(t *testing.T) {
+	obj := validVDS("vds-update-no-pgids")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.VSphereDistributedNetwork{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.Gateway = "10.0.0.254"
+	if err := k8sClient.Update(testCtx, latest); err != nil {
+		t.Fatalf("expected update admission, got: %v", err)
+	}
+}

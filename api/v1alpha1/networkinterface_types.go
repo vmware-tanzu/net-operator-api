@@ -77,6 +77,14 @@ const (
 	// NetworkInterfaceFailureReasonUnsupportedIPFamilyPolicy indicates NetworkInterface is in failed state
 	// because the requested IPFamilyPolicy is not supported by the Network's SupportedIPFamilies.
 	NetworkInterfaceFailureReasonUnsupportedIPFamilyPolicy NetworkInterfaceConditionReason = "UnsupportedIPFamilyPolicy"
+	// NetworkInterfaceFailureReasonNoCandidateNetwork indicates NetworkInterface is in failed state
+	// because no portgroup of the backing network is available on the cluster named by
+	// filter.clusterMoID.
+	NetworkInterfaceFailureReasonNoCandidateNetwork NetworkInterfaceConditionReason = "NoCandidateNetwork"
+	// NetworkInterfaceFailureReasonAmbiguousPlacement indicates NetworkInterface is in failed state
+	// because the backing network is made up of more than one portgroup and filter does not
+	// give the network provider enough information to choose one.
+	NetworkInterfaceFailureReasonAmbiguousPlacement NetworkInterfaceConditionReason = "AmbiguousPlacement"
 )
 
 // NetworkInterfaceCondition describes the state of a NetworkInterface at a certain point.
@@ -235,6 +243,25 @@ type NetworkInterfaceSpec struct {
 	// +kubebuilder:validation:items:XValidation:rule="isIP(self)",message="each requestedIP must be a valid IPv4 or IPv6 address"
 	// +kubebuilder:validation:XValidation:rule="!self.all(x, isIP(x)) || size(self) <= 1 || ip(self[0]).family() != ip(self[1]).family()",message="requestedIPs must not contain two addresses of the same IP family"
 	RequestedIPs []string `json:"requestedIPs,omitempty"`
+	// filter constrains which backing network the network provider selects for this network
+	// interface, when the Network is backed by more than one portgroup. If unset and the Network
+	// is backed by more than one portgroup, the NetworkInterface does not become Ready: its Ready
+	// condition is False and its Failure condition has reason AmbiguousPlacement. If unset and the
+	// Network is backed by a single portgroup, that portgroup is used.
+	// +optional
+	Filter *NetworkInterfaceFilter `json:"filter,omitempty"`
+}
+
+// NetworkInterfaceFilter describes constraints on the backing network that the network provider
+// selects for a NetworkInterface.
+type NetworkInterfaceFilter struct {
+	// clusterMoID is the managed object ID of the vSphere cluster (for example domain-c8) on which
+	// the selected portgroup must be available. Changing it has no effect once status.networkID
+	// is set.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	ClusterMoID string `json:"clusterMoID,omitempty"`
 }
 
 // NetworkInterfaceReference is an object that points to a NetworkInterface.

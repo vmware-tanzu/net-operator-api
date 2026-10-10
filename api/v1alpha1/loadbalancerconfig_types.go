@@ -13,11 +13,10 @@ import (
 // which contains credential specifications for a load balancer.
 type ClientSecretReference struct {
 	// Name is the name of resource being referenced.
-	// It must conform to DNS-1123 subdomain format.
+	// It must conform to DNS-1123 subdomain format when non-empty.
 	//
-	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	// +kubebuilder:validation:Pattern=`^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?$`
 	Name string `json:"name"`
 	// Namespace of the resource being referenced. If empty, cluster scoped resource is assumed.
 	// +kubebuilder:default:=default

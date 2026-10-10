@@ -151,6 +151,17 @@ func TestAviLoadBalancerConfig_ValidCredentialSecretRefName_Admitted(t *testing.
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
+func TestAviLoadBalancerConfig_EmptyCredentialSecretRefName_Admitted(t *testing.T) {
+	// Verifies backward compatibility for empty credentialSecretRef.name, as used by
+	// wcpsvc when bootstrapping an initial AviLoadBalancerConfig prior to NCP population.
+	obj := validAviLoadBalancerConfig("avic-empty-secret-name")
+	obj.Spec.CredentialSecretRef.Name = ""
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for empty credentialSecretRef.name, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
 func TestAviLoadBalancerConfig_InvalidCredentialSecretRefName_Rejected(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -172,10 +183,6 @@ func TestAviLoadBalancerConfig_InvalidCredentialSecretRefName_Rejected(t *testin
 			name:       "consecutive dots",
 			secretName: "bad..secret",
 		},
-		{
-			name:       "empty name",
-			secretName: "",
-		},
 	}
 
 	for _, tc := range testCases {
@@ -187,5 +194,49 @@ func TestAviLoadBalancerConfig_InvalidCredentialSecretRefName_Rejected(t *testin
 				_ = k8sClient.Delete(testCtx, obj)
 			}
 		})
+	}
+}
+
+func TestAviLoadBalancerConfig_ValidCertificateAuthorityData_Admitted(t *testing.T) {
+	obj := validAviLoadBalancerConfig("avic-ca-data")
+	obj.Spec.CertificateAuthorityData = "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission for valid certificateAuthorityData, got: %v", err)
+	}
+	_ = k8sClient.Delete(testCtx, obj)
+}
+
+func TestAviLoadBalancerConfig_EmptyCertificateAuthorityData_Rejected(t *testing.T) {
+	// Sending an explicit empty string via Unstructured tests MinLength=1 enforcement
+	// (typed Go client omits "" via omitempty).
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "netoperator.vmware.com/v1alpha1",
+			"kind":       "AviLoadBalancerConfig",
+			"metadata": map[string]interface{}{
+				"name": "avic-empty-ca-data",
+			},
+			"spec": map[string]interface{}{
+				"server":                   "https://10.0.0.1",
+				"certificateAuthorityData": "",
+				"credentialSecretRef": map[string]interface{}{
+					"name":      "avi-creds",
+					"namespace": "default",
+				},
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for explicit empty certificateAuthorityData, got: %v", err)
+		_ = k8sClient.Delete(testCtx, obj)
+	}
+}
+
+func TestAviLoadBalancerConfig_TooLongCertificateAuthorityData_Rejected(t *testing.T) {
+	obj := validAviLoadBalancerConfig("avic-too-long-ca")
+	obj.Spec.CertificateAuthorityData = strings.Repeat("a", 65537)
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for certificateAuthorityData exceeding MaxLength=65536, got: %v", err)
+		_ = k8sClient.Delete(testCtx, obj)
 	}
 }

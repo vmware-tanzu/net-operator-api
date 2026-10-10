@@ -245,6 +245,33 @@ func TestHAProxyLoadBalancerConfig_CertificateAuthorityData_Admitted(t *testing.
 	_ = k8sClient.Delete(testCtx, obj)
 }
 
+func TestHAProxyLoadBalancerConfig_CertificateAuthorityData_TooLong_Rejected(t *testing.T) {
+	obj := validHAProxyLoadBalancerConfig("hac-ca-too-long")
+	obj.Spec.CertificateAuthorityData = strings.Repeat("a", 65537)
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for certificateAuthorityData >65536 bytes, got: %v", err)
+	}
+}
+
+func TestHAProxyLoadBalancerConfig_CertificateAuthorityData_EmptyString_Rejected(t *testing.T) {
+	u := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "netoperator.vmware.com/v1alpha1",
+			"kind":       "HAProxyLoadBalancerConfig",
+			"metadata": map[string]interface{}{
+				"name": "hac-ca-empty-str",
+			},
+			"spec": map[string]interface{}{
+				"endPointURLs":             []interface{}{"https://10.0.0.1:5555/v2"},
+				"certificateAuthorityData": "",
+			},
+		},
+	}
+	if err := k8sClient.Create(testCtx, u); !isRejected(err) {
+		t.Fatalf("expected rejection for empty certificateAuthorityData string, got: %v", err)
+	}
+}
+
 func TestHAProxyLoadBalancerConfig_UnstructuredEmptyEndPointURL_Rejected(t *testing.T) {
 	u := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -377,6 +404,67 @@ func TestHAProxyLoadBalancerConfig_Conditions_InvalidStatus_Rejected(t *testing.
 	}
 	if err := k8sClient.Status().Update(testCtx, latest); err == nil || !strings.Contains(err.Error(), "Unsupported value") {
 		t.Fatalf("expected rejection for invalid condition status, got: %v", err)
+	}
+}
+
+func TestHAProxyLoadBalancerConfig_Conditions_DuplicateTypes_Rejected(t *testing.T) {
+	obj := validHAProxyLoadBalancerConfig("hac-dup-conditions")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.HAProxyLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	latest.Status.Conditions = []metav1.Condition{
+		{
+			Type:               "IPPoolReconciled",
+			Status:             metav1.ConditionTrue,
+			Reason:             "Reconciled",
+			Message:            "first",
+			LastTransitionTime: metav1.Now(),
+		},
+		{
+			Type:               "IPPoolReconciled",
+			Status:             metav1.ConditionFalse,
+			Reason:             "Failed",
+			Message:            "duplicate",
+			LastTransitionTime: metav1.Now(),
+		},
+	}
+	if err := k8sClient.Status().Update(testCtx, latest); !isRejected(err) {
+		t.Fatalf("expected rejection for duplicate condition types, got: %v", err)
+	}
+}
+
+func TestHAProxyLoadBalancerConfig_Conditions_TooMany_Rejected(t *testing.T) {
+	obj := validHAProxyLoadBalancerConfig("hac-conditions-overflow")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.HAProxyLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+
+	conditions := make([]metav1.Condition, 9)
+	for i := range conditions {
+		conditions[i] = metav1.Condition{
+			Type:               fmt.Sprintf("Cond%d", i),
+			Status:             metav1.ConditionTrue,
+			Reason:             "Reconciled",
+			Message:            "ok",
+			LastTransitionTime: metav1.Now(),
+		}
+	}
+	latest.Status.Conditions = conditions
+	if err := k8sClient.Status().Update(testCtx, latest); !isRejected(err) {
+		t.Fatalf("expected rejection for >8 conditions, got: %v", err)
 	}
 }
 

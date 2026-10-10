@@ -66,17 +66,20 @@ type HAProxyLoadBalancerConfigSpec struct {
 	// +optional
 	CredentialSecretRef ClientSecretReference `json:"credentialSecretRef,omitempty"`
 
-	// CertificateAuthorityData contains PEM-encoded certificate authority
+	// certificateAuthorityData contains PEM-encoded certificate authority
 	// certificates used to verify x509 certificates received from the DataPlane API server.
 	// When specified, this takes precedence over the certificateAuthorityData in the
 	// referenced credentialSecretRef Secret.
 	//
 	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=65536
 	CertificateAuthorityData string `json:"certificateAuthorityData,omitempty"`
 
 	// virtualServerIPPools is the list of IPPools that are used for load balancer IP addresses.
-	// If this field is used, effectiveVirtualServerIPPools will be populated with entries of virtualServerIPPools
-	// on a successful reconciliation.
+	// When specified, entries of virtualServerIPPools are included in status.effectiveVirtualServerIPPools
+	// on successful reconciliation. If omitted or empty, status.effectiveVirtualServerIPPools will only
+	// contain pools derived from virtualServerIPRanges (or remain empty if ranges are also omitted).
 	//
 	// +optional
 	// +listType=atomic
@@ -85,8 +88,10 @@ type HAProxyLoadBalancerConfigSpec struct {
 	VirtualServerIPPools []IPPoolReference `json:"virtualServerIPPools,omitempty"`
 
 	// virtualServerIPRanges are IP ranges from which Virtual Server IPs are allocated.
-	// If this field is used, on successful reconciliation of virtualServerIPRanges, effectiveVirtualServerIPPools
-	// will be populated with names of IP Pools reconciled from it.
+	// When specified, controller-managed IPPools reconciled from virtualServerIPRanges are included
+	// in status.effectiveVirtualServerIPPools on successful reconciliation. If omitted or empty,
+	// status.effectiveVirtualServerIPPools will only contain pools from virtualServerIPPools
+	// (or remain empty if pools are also omitted).
 	//
 	// +optional
 	// +listType=atomic
@@ -96,9 +101,12 @@ type HAProxyLoadBalancerConfigSpec struct {
 
 // HAProxyLoadBalancerConfigStatus describes the observed state of the HAProxy Load Balancer.
 type HAProxyLoadBalancerConfigStatus struct {
-	// Conditions describes states of the load balancer at specific points in time.
+	// conditions describes states of the load balancer at specific points in time.
 	//
 	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=8
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// effectiveVirtualServerIPPools is the union of explicitly referenced pools
@@ -127,10 +135,12 @@ type HAProxyLoadBalancerConfig struct {
 	Status HAProxyLoadBalancerConfigStatus `json:"status,omitempty"`
 }
 
+// GetConditions returns the status conditions for this HAProxyLoadBalancerConfig.
 func (hac *HAProxyLoadBalancerConfig) GetConditions() []metav1.Condition {
 	return hac.Status.Conditions
 }
 
+// SetConditions sets the status conditions for this HAProxyLoadBalancerConfig.
 func (hac *HAProxyLoadBalancerConfig) SetConditions(conditions []metav1.Condition) {
 	hac.Status.Conditions = conditions
 }

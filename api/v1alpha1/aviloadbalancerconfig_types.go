@@ -50,7 +50,9 @@ type AviLoadBalancerConfigSpec struct {
 	// CloudName is used by the Avi Kubernetes Operator (AKO) when querying
 	// properties via the Avi REST API, ex. /api/cloud/?name=CLOUD_NAME.
 	// Defaults to Default-Cloud.
+	//
 	// +kubebuilder:default:=Default-Cloud
+	// +kubebuilder:validation:MinLength=1
 	CloudName string `json:"cloudName,omitempty"`
 
 	// AdvancedL4 is a flag that enables support for WCP in AKO.
@@ -67,6 +69,16 @@ type AviLoadBalancerConfigSpec struct {
 	// +kubebuilder:default:=controller
 	// +kubebuilder:validation:Enum=controller;supervisor
 	IPAMType AviLoadBalancerIPAMType `json:"ipamType,omitempty"`
+
+	// certificateAuthorityData contains PEM-encoded certificate authority
+	// certificates used to verify the Avi Controller's TLS certificate.
+	// If empty, the certificate authority certificate stored in the Secret
+	// referenced by CredentialSecretRef will be used.
+	//
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=65536
+	CertificateAuthorityData string `json:"certificateAuthorityData,omitempty"`
 
 	// CredentialSecretRef points to a Secret resource used to access and
 	// configure the Avi Controller.

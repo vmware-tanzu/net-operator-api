@@ -11,6 +11,7 @@ import (
 	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // nifObj builds a NetworkInterface with only networkName set.
@@ -186,5 +187,69 @@ func TestNetworkInterface_RequestedIPsTooMany_Rejected(t *testing.T) {
 	})
 	if err := k8sClient.Create(testCtx, obj); err == nil || !strings.Contains(err.Error(), "Too many") {
 		t.Fatalf("expected rejection containing %q, got: %v", "Too many", err)
+	}
+}
+
+// -----------------------------------------------------------------------
+// filter field
+// Schema: optional struct with one optional field clusterMoID (minLength=1, maxLength=64).
+// No transition rule: filter is mutable.
+// -----------------------------------------------------------------------
+
+func TestNetworkInterface_FilterUnset_Admitted(t *testing.T) {
+	ensureNamespace(t, nifNamespace)
+	obj := nifObj("nif-filter-unset")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+}
+
+func TestNetworkInterface_FilterClusterMoIDSet_Admitted(t *testing.T) {
+	ensureNamespace(t, nifNamespace)
+	obj := nifObj("nif-filter-cluster-set")
+	obj.Spec.Filter = &netv1alpha1.NetworkInterfaceFilter{ClusterMoID: "domain-c1"}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected admission, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+}
+
+func TestNetworkInterface_FilterClusterMoIDChanged_Admitted(t *testing.T) {
+	ensureNamespace(t, nifNamespace)
+	obj := nifObj("nif-filter-cluster-changed")
+	obj.Spec.Filter = &netv1alpha1.NetworkInterfaceFilter{ClusterMoID: "domain-c1"}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.NetworkInterface{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.Filter.ClusterMoID = "domain-c2"
+	if err := k8sClient.Update(testCtx, latest); err != nil {
+		t.Fatalf("expected update admission, got: %v", err)
+	}
+}
+
+func TestNetworkInterface_FilterClusterMoIDTooLong_Rejected(t *testing.T) {
+	ensureNamespace(t, nifNamespace)
+	obj := unstrNIF("nif-filter-cluster-too-long", map[string]interface{}{
+		"filter": map[string]interface{}{"clusterMoID": strings.Repeat("a", 65)},
+	})
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) || !strings.Contains(err.Error(), "Too long") {
+		t.Fatalf("expected rejection containing %q, got: %v", "Too long", err)
+	}
+}
+
+func TestNetworkInterface_FilterClusterMoIDEmpty_Rejected(t *testing.T) {
+	ensureNamespace(t, nifNamespace)
+	obj := unstrNIF("nif-filter-cluster-empty", map[string]interface{}{
+		"filter": map[string]interface{}{"clusterMoID": ""},
+	})
+	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
+		t.Fatalf("expected rejection for empty clusterMoID, got: %v", err)
 	}
 }

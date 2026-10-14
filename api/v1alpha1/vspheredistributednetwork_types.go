@@ -21,6 +21,15 @@ const (
 	VsphereDistributedNetworkIPPoolPressure VSphereDistributedNetworkConditionType = "IPPoolPressure"
 )
 
+const (
+	// VSphereDistributedNetworkReasonPortGroupNotFound is used with VSphereDistributedNetworkPortGroupFailure
+	// when a portgroup named by portGroupID or portGroupIDs does not exist.
+	VSphereDistributedNetworkReasonPortGroupNotFound = "PortGroupNotFound"
+	// VSphereDistributedNetworkReasonPortGroupConfigMismatch is used with VSphereDistributedNetworkPortGroupFailure
+	// when the portgroups named by portGroupIDs do not share the same default port configuration.
+	VSphereDistributedNetworkReasonPortGroupConfigMismatch = "PortGroupConfigMismatch"
+)
+
 type IPAssignmentModeType string
 
 const (
@@ -69,10 +78,23 @@ type VSphereDistributedNetworkCondition struct {
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.ipPools) || size(self.ipPools) == 0) : true",message="IPPools must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != '') : true",message="Gateway is required when IpAssignmentMode is staticpool or unset"
 // +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != '') : true",message="SubnetMask is required when IpAssignmentMode is staticpool or unset"
+// +kubebuilder:validation:XValidation:rule="!has(self.portGroupIDs) || size(self.portGroupIDs) == 0 || self.portGroupIDs[0] == self.portGroupID",message="portGroupIDs[0] must equal portGroupID when portGroupIDs is set"
 // VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.
 type VSphereDistributedNetworkSpec struct {
 	// PortGroupID is an existing vSphere Distributed PortGroup identifier.
 	PortGroupID string `json:"portGroupID"`
+
+	// portGroupIDs is the ordered list of vSphere portgroup identifiers that back this network.
+	// All portgroups must be on the same subnet. Order is significant: portGroupIDs[0] is the
+	// primary portgroup and must equal portGroupID. When unset or empty, the network is backed
+	// by the single portgroup named by portGroupID. Use EffectivePortGroupIDs to read the
+	// resolved list.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:items:MaxLength=64
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, y == x))",message="portGroupIDs must not contain duplicate entries"
+	PortGroupIDs []string `json:"portGroupIDs,omitempty"`
 
 	// ipAssignmentMode to use for IPv4 addresses on network interfaces.
 	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPv4 IPPools, Gateway and SubnetMask
@@ -143,6 +165,16 @@ type VSphereDistributedNetworkSpec struct {
 	// +kubebuilder:validation:MaxItems=1024
 	// +listType=atomic
 	AddressRanges []VSphereDistributedNetworkIPRange `json:"addressRanges,omitempty"`
+}
+
+// EffectivePortGroupIDs returns the portgroups that back the network, in order. It returns a copy
+// of PortGroupIDs when it is non-empty, else a single-element list holding PortGroupID. The caller
+// may modify the returned slice.
+func (s *VSphereDistributedNetworkSpec) EffectivePortGroupIDs() []string {
+	if len(s.PortGroupIDs) > 0 {
+		return append([]string(nil), s.PortGroupIDs...)
+	}
+	return []string{s.PortGroupID}
 }
 
 // VLANType represents the type of VLAN configuration

@@ -77,15 +77,32 @@ const (
 
 	// LoadBalancerConfigTypeFoundation is the FoundationLoadBalancerConfigType for VCF Foundation Load Balancer.
 	LoadBalancerConfigTypeFoundation LoadBalancerConfigType = "foundation"
+
+	// LoadBalancerConfigTypeNSX is the LoadBalancerConfigType for NSX-T/VPC Load Balancer.
+	LoadBalancerConfigTypeNSX LoadBalancerConfigType = "nsx"
+
+	// LoadBalancerConfigTypeNSXRegisteredAvi is the LoadBalancerConfigType for NSX Registered Avi Load Balancer.
+	LoadBalancerConfigTypeNSXRegisteredAvi LoadBalancerConfigType = "nsx-registered-avi"
 )
 
 // LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig
+// +kubebuilder:validation:XValidation:rule="(oldSelf.type == 'nsx' && self.type == 'nsx-registered-avi') || (self.type == 'nsx' && !has(self.providerRef)) || !has(oldSelf.providerRef) || (has(self.providerRef) && self.providerRef == oldSelf.providerRef)",message="spec.providerRef is immutable once set except when switching from nsx to nsx-registered-avi or removing it for nsx"
+// +kubebuilder:validation:XValidation:rule="self.type == 'nsx' || has(self.providerRef)",message="spec.providerRef is required except for nsx"
+// +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type in ['avi', 'nsx-registered-avi'] && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind in ['HAProxyLoadBalancerConfig', 'HAProxy']) || self.type == 'nsx'",message="providerRef.kind must match spec.type"
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.
-	// +kubebuilder:validation:Enum=haproxy;avi;foundation
+	// It is immutable except for transitions between nsx and nsx-registered-avi,
+	// and one-way migration from avi to an NSX provider.
+	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsx;nsx-registered-avi
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf == 'avi' && self in ['nsx', 'nsx-registered-avi']) || (oldSelf in ['nsx', 'nsx-registered-avi'] && self in ['nsx', 'nsx-registered-avi'])",message="spec.type is immutable except between nsx and nsx-registered-avi or from avi to an NSX provider"
 	Type LoadBalancerConfigType `json:"type"`
 	// ProviderRef is reference to a load balancer provider object that provides the details for this type of load balancer
-	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef"`
+	// It is required except for nsx. Once set, it can only be replaced when
+	// switching from nsx to nsx-registered-avi, or removed when type is nsx.
+	// nsx-registered-avi requires an AviLoadBalancerConfig reference.
+	// For haproxy, both HAProxyLoadBalancerConfig and the legacy HAProxy kind are supported.
+	// +optional
+	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef,omitempty"` //nolint:kubeapilinter // Preserve Go source compatibility with existing wcpsvc and Supervisor clients.
 }
 
 // LoadBalancerConfigStatus defines the observed state of LoadBalancerConfig
@@ -104,6 +121,8 @@ type LoadBalancerConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// spec defines the desired load balancer configuration.
+	// +required
 	Spec   LoadBalancerConfigSpec   `json:"spec,omitempty"`
 	Status LoadBalancerConfigStatus `json:"status,omitempty"`
 }

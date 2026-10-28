@@ -13,7 +13,7 @@ import (
 // This spec supports HAProxyLoadBalancerConfig Dataplane API 2.0+ sidecar
 //
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.virtualServerIPPools) || (has(self.virtualServerIPPools) && oldSelf.virtualServerIPPools.all(x, self.virtualServerIPPools.exists(y, y.name == x.name)))",message="entries may not be removed from virtualServerIPPools"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.virtualServerIPRanges) || (has(self.virtualServerIPRanges) && oldSelf.virtualServerIPRanges.all(x, self.virtualServerIPRanges.exists(y, y.startingAddress == x.startingAddress)))",message="entries may not be removed from virtualServerIPRanges"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.virtualServerIPRanges) || (has(self.virtualServerIPRanges) && oldSelf.virtualServerIPRanges.all(x, self.virtualServerIPRanges.exists(y, y.startingAddress == x.startingAddress && y.addressCount == x.addressCount)))",message="entries may not be removed or changed in virtualServerIPRanges"
 type HAProxyLoadBalancerConfigSpec struct {
 	// EndPointURLs is a list of the addresses for the DataPlane API servers used
 	// to configure HAProxy.

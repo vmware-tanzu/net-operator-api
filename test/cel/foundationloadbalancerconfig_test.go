@@ -553,7 +553,7 @@ func TestFoundationLoadBalancerConfig_VirtualServerIPPools_AppendAdmitted(t *tes
 
 // TestFoundationLoadBalancerConfig_VirtualServerIPRanges_RemovalRejected verifies that once a
 // range entry exists it cannot be removed — the oldSelf XValidation rule rejects updates that
-// drop a previously-present startingAddress.
+// drop a previously-present (startingAddress, addressCount) pair.
 func TestFoundationLoadBalancerConfig_VirtualServerIPRanges_RemovalRejected(t *testing.T) {
 	ensureNamespace(t, flbcNS)
 	obj := validFLBC("flbc-range-removal")
@@ -603,6 +603,33 @@ func TestFoundationLoadBalancerConfig_VirtualServerIPRanges_AppendAdmitted(t *te
 	}
 	if err := k8sClient.Update(testCtx, latest); err != nil {
 		t.Fatalf("expected admission when appending to virtualServerIPRanges, got: %v", err)
+	}
+}
+
+// TestFoundationLoadBalancerConfig_VirtualServerIPRanges_AddressCountChangeRejected verifies that
+// changing the addressCount of an existing range is rejected. The controller names the managed IPPool
+// after both startingAddress and addressCount, so such a change would create a second, overlapping pool.
+func TestFoundationLoadBalancerConfig_VirtualServerIPRanges_AddressCountChangeRejected(t *testing.T) {
+	ensureNamespace(t, flbcNS)
+	obj := validFLBC("flbc-range-count-change")
+	obj.Spec.NetworkSpec.VirtualServerIPPools = nil
+	obj.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.3.0.1", AddressCount: 4},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.FoundationLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.NetworkSpec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.3.0.1", AddressCount: 8},
+	}
+	if err := k8sClient.Update(testCtx, latest); !isRejected(err) {
+		t.Fatalf("expected rejection when changing addressCount of 10.3.0.1 from 4 to 8, got: %v", err)
 	}
 }
 

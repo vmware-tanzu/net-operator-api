@@ -539,6 +539,28 @@ func TestHAProxyLoadBalancerConfig_VirtualServerIPRanges_RemovalRejected(t *test
 	}
 }
 
+func TestHAProxyLoadBalancerConfig_VirtualServerIPRanges_AddressCountChangeRejected(t *testing.T) {
+	obj := validHAProxyLoadBalancerConfig("hac-range-count-change")
+	obj.Spec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.3.0.1", AddressCount: 4},
+	}
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	latest := &netv1alpha1.HAProxyLoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	latest.Spec.VirtualServerIPRanges = []netv1alpha1.IPRange{
+		{StartingAddress: "10.3.0.1", AddressCount: 8},
+	}
+	if err := k8sClient.Update(testCtx, latest); !isRejected(err) {
+		t.Fatalf("expected rejection when changing addressCount of 10.3.0.1 from 4 to 8, got: %v", err)
+	}
+}
+
 func TestHAProxyLoadBalancerConfig_VirtualServerIPRanges_AppendAdmitted(t *testing.T) {
 	obj := validHAProxyLoadBalancerConfig("hac-range-append")
 	obj.Spec.VirtualServerIPRanges = []netv1alpha1.IPRange{

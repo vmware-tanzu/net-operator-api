@@ -28,6 +28,9 @@ const (
 	// VSphereDistributedNetworkReasonPortGroupConfigMismatch is used with VSphereDistributedNetworkPortGroupFailure
 	// when the portgroups named by portGroupIDs do not share the same default port configuration.
 	VSphereDistributedNetworkReasonPortGroupConfigMismatch = "PortGroupConfigMismatch"
+	// VSphereDistributedNetworkReasonIPPoolReconcileFailed is used with VSphereDistributedNetworkIPPoolInvalid
+	// when the IPPools for spec.addressRanges could not be created, updated, or deleted.
+	VSphereDistributedNetworkReasonIPPoolReconcileFailed = "IPPoolReconcileFailed"
 )
 
 type IPAssignmentModeType string
@@ -76,6 +79,7 @@ type VSphereDistributedNetworkCondition struct {
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.subnetMask) || self.subnetMask == '') : true",message="SubnetMask must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.addressRanges) || size(self.addressRanges) == 0) : true",message="AddressRanges must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.ipPools) || size(self.ipPools) == 0) : true",message="IPPools must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="!(has(self.ipPools) && size(self.ipPools) > 0 && has(self.addressRanges) && size(self.addressRanges) > 0)",message="ipPools and addressRanges are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != '') : true",message="Gateway is required when IpAssignmentMode is staticpool or unset"
 // +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != '') : true",message="SubnetMask is required when IpAssignmentMode is staticpool or unset"
 // +kubebuilder:validation:XValidation:rule="!has(self.portGroupIDs) || size(self.portGroupIDs) == 0 || self.portGroupIDs[0] == self.portGroupID",message="portGroupIDs[0] must equal portGroupID when portGroupIDs is set"
@@ -117,9 +121,9 @@ type VSphereDistributedNetworkSpec struct {
 	// IPPools references list of IPPool objects. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
 	// to an empty list.
-	// When addressRanges is non-empty, the operator reconciles ipPools against those ranges:
-	// references that do not correspond to any address range are removed, new references are added
-	// where needed, and every retained reference (including ones that already matched a range) is reconciled.
+	// ipPools and addressRanges are mutually exclusive. When ipAssignmentMode is staticpool, one of
+	// them must be non-empty. The pools this network allocates from are reported in
+	// status.effectiveIPPools.
 	// +kubebuilder:default:={}
 	// +optional
 	IPPools []IPPoolReference `json:"ipPools"`
@@ -157,10 +161,9 @@ type VSphereDistributedNetworkSpec struct {
 	// +kubebuilder:validation:Maximum=128
 	IPv6Prefix *int32 `json:"ipv6Prefix,omitempty"`
 
-	// addressRanges is a list of IP ranges for static IP assignment.
-	// When non-empty, the operator reconciles ipPools against this list: IPPool references that do
-	// not map to any range here are removed, new references are added for ranges that require them,
-	// and all references that remain are reconciled (including those that already mapped to a range).
+	// addressRanges is a list of IP ranges for static IP assignment. The operator creates and manages
+	// one IPPool per range and reports them in status.effectiveIPPools. Removing a range deletes the
+	// IPPool created for it. ipPools and addressRanges are mutually exclusive.
 	// +optional
 	// +kubebuilder:validation:MaxItems=1024
 	// +listType=atomic
@@ -304,6 +307,14 @@ type VSphereDistributedNetworkStatus struct {
 	// If unset, indicates that no default port-level configuration has been retrieved yet for this network.
 	// +optional
 	DefaultPortConfig *VSphereDistributedPortConfig `json:"defaultPortConfig,omitempty"`
+
+	// effectiveIPPools is the list of IPPools that IP addresses on this network are allocated from,
+	// as of the last successful reconcile: the pools created from spec.addressRanges, or the pools
+	// referenced in spec.ipPools.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=1024
+	EffectiveIPPools []IPPoolReference `json:"effectiveIPPools,omitempty"`
 }
 
 // +genclient

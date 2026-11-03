@@ -101,7 +101,11 @@ func TestLoadBalancerConfig_RequiredProviderRef_Rejected(t *testing.T) {
 	for _, provider := range []string{"foundation", "avi", "haproxy"} {
 		t.Run(provider, func(t *testing.T) {
 			obj := lbcWithoutReference("lbc-no-ref-"+provider, provider)
-			requireLBCRejection(t, k8sClient.Create(testCtx, obj), "spec.providerRef is required except for nsx")
+			err := k8sClient.Create(testCtx, obj)
+			requireLBCRejection(t, err, "spec.providerRef is required except for nsx")
+			if strings.Contains(err.Error(), "no such key") {
+				t.Fatalf("unexpected CEL evaluation error: %v", err)
+			}
 		})
 	}
 }
@@ -175,7 +179,7 @@ func TestLoadBalancerConfig_NSXToAvi_Transition_Admitted(t *testing.T) {
 	}
 }
 
-func TestLoadBalancerConfig_ProviderRefImmutable_Rejected(t *testing.T) {
+func TestLoadBalancerConfig_ProviderRefMutable_Admitted(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		mutate func(*netv1alpha1.LoadBalancerConfigProviderReference)
@@ -184,10 +188,9 @@ func TestLoadBalancerConfig_ProviderRefImmutable_Rejected(t *testing.T) {
 		{"api-group", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.APIGroup = "other.example.com" }},
 		{"api-version", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.APIVersion = "v1beta1" }},
 		{"api-version-removal", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.APIVersion = "" }},
-		{"kind", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.Kind = "AviLoadBalancerConfig" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			obj := validFoundationLBC("lbc-ref-immutable-" + tc.name)
+			obj := validFoundationLBC("lbc-ref-mutable-" + tc.name)
 			obj.Spec.ProviderRef.APIVersion = "v1alpha1"
 			if err := k8sClient.Create(testCtx, obj); err != nil {
 				t.Fatal(err)
@@ -197,7 +200,9 @@ func TestLoadBalancerConfig_ProviderRefImmutable_Rejected(t *testing.T) {
 				t.Fatalf("get before update: %v", err)
 			}
 			tc.mutate(&obj.Spec.ProviderRef)
-			requireLBCRejection(t, k8sClient.Update(testCtx, obj), "spec.providerRef is immutable once set")
+			if err := k8sClient.Update(testCtx, obj); err != nil {
+				t.Fatalf("expected provider reference update to be admitted: %v", err)
+			}
 		})
 	}
 }
@@ -419,7 +424,7 @@ func TestLoadBalancerConfig_SpecRequired_Rejected(t *testing.T) {
 	})
 }
 
-func TestLoadBalancerConfig_HAProxyKindChange_Rejected(t *testing.T) {
+func TestLoadBalancerConfig_HAProxyKindChange_Admitted(t *testing.T) {
 	for _, kind := range []string{"HAProxy", "HAProxyLoadBalancerConfig"} {
 		t.Run(kind, func(t *testing.T) {
 			obj := validHAProxyLBC("lbc-kind-" + strings.ToLower(kind))
@@ -435,12 +440,14 @@ func TestLoadBalancerConfig_HAProxyKindChange_Rejected(t *testing.T) {
 			}
 			obj = latest
 
-			// Both spellings are accepted, but an existing reference remains immutable.
+			// Both spellings are supported for HAProxy references.
 			obj.Spec.ProviderRef.Kind = "HAProxy"
 			if kind == "HAProxy" {
 				obj.Spec.ProviderRef.Kind = "HAProxyLoadBalancerConfig"
 			}
-			requireLBCRejection(t, k8sClient.Update(testCtx, obj), "spec.providerRef is immutable once set")
+			if err := k8sClient.Update(testCtx, obj); err != nil {
+				t.Fatalf("expected HAProxy provider kind update to be admitted: %v", err)
+			}
 		})
 	}
 }
@@ -482,9 +489,7 @@ func TestLoadBalancerConfig_TypeRequired_Rejected(t *testing.T) {
 	}
 }
 
-func TestLoadBalancerConfig_UnchangedType_ReferenceChangeRejected(t *testing.T) {
-	// The NSX-to-Avi transition exception must not permit reference replacement
-	// when either endpoint type is unchanged, or weaken the other providers.
+func TestLoadBalancerConfig_UnchangedType_ReferenceChangeAdmitted(t *testing.T) {
 	for _, obj := range controllerLBCs() {
 		t.Run(obj.Name, func(t *testing.T) {
 			if err := k8sClient.Create(testCtx, obj); err != nil {
@@ -492,11 +497,12 @@ func TestLoadBalancerConfig_UnchangedType_ReferenceChangeRejected(t *testing.T) 
 			}
 			defer func() { _ = k8sClient.Delete(testCtx, obj) }()
 			latest := getLBC(t, obj)
-			expected := latest.Spec
 			latest.Spec.ProviderRef.Name = "different-provider"
-			requireLBCRejection(t, k8sClient.Update(testCtx, latest), "spec.providerRef is immutable once set")
-			if got := getLBC(t, obj).Spec; got != expected {
-				t.Fatalf("rejected update changed spec: %+v", got)
+			if err := k8sClient.Update(testCtx, latest); err != nil {
+				t.Fatalf("expected provider reference update to be admitted: %v", err)
+			}
+			if got := getLBC(t, obj).Spec.ProviderRef.Name; got != "different-provider" {
+				t.Fatalf("providerRef.name: got %q, want %q", got, "different-provider")
 			}
 		})
 	}

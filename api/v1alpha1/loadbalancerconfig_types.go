@@ -83,9 +83,8 @@ const (
 )
 
 // LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig
-// +kubebuilder:validation:XValidation:rule="(oldSelf.type == 'nsx' && self.type == 'avi') || (self.type == 'nsx' && !has(self.providerRef)) || (has(self.providerRef) && self.providerRef == oldSelf.providerRef)",message="spec.providerRef is immutable once set except when switching from nsx to avi or removing it for nsx"
 // +kubebuilder:validation:XValidation:rule="self.type == 'nsx' || has(self.providerRef)",message="spec.providerRef is required except for nsx"
-// +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind in ['HAProxyLoadBalancerConfig', 'HAProxy']) || self.type == 'nsx'",message="providerRef.kind must match spec.type"
+// +kubebuilder:validation:XValidation:rule="!has(self.providerRef) || (self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind in ['HAProxyLoadBalancerConfig', 'HAProxy']) || self.type == 'nsx'",message="providerRef.kind must match spec.type"
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.
 	// It is immutable except for transitions between avi and nsx.
@@ -93,7 +92,7 @@ type LoadBalancerConfigSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf == 'nsx' && self == 'avi') || (oldSelf == 'avi' && self == 'nsx')",message="spec.type is immutable except between avi and nsx"
 	Type LoadBalancerConfigType `json:"type"`
 	// ProviderRef is reference to a load balancer provider object that provides the details for this type of load balancer
-	// It is required except for nsx, where it must be omitted. Once set, it can only be replaced when switching from nsx to avi.
+	// It is required except for nsx. The referenced object must match the selected provider type.
 	// For haproxy, both HAProxyLoadBalancerConfig and the legacy HAProxy kind are supported.
 	// +optional
 	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef,omitempty"` //nolint:kubeapilinter // Preserve Go source compatibility with existing wcpsvc and Supervisor clients.

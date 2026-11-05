@@ -91,11 +91,11 @@ type LoadBalancerConfigSpec struct {
 	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsx
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf == 'nsx' && self == 'avi') || (oldSelf == 'avi' && self == 'nsx')",message="spec.type is immutable except between avi and nsx"
 	Type LoadBalancerConfigType `json:"type"`
-	// ProviderRef is reference to a load balancer provider object that provides the details for this type of load balancer
+	// providerRef references the load balancer provider configuration.
 	// It is required except for nsx. The referenced object must match the selected provider type.
 	// For haproxy, both HAProxyLoadBalancerConfig and the legacy HAProxy kind are supported.
 	// +optional
-	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef,omitempty"` //nolint:kubeapilinter // Preserve Go source compatibility with existing wcpsvc and Supervisor clients.
+	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef,omitempty,omitzero"` //nolint:kubeapilinter // Preserve Go source compatibility with existing clients; omitzero omits an unset reference.
 }
 
 // LoadBalancerConfigStatus defines the observed state of LoadBalancerConfig

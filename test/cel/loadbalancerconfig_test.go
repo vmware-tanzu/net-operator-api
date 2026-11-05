@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func validFoundationLBC(name string) *netv1alpha1.LoadBalancerConfig {
@@ -146,9 +147,39 @@ func TestLoadBalancerConfig_AviToNSX_ProviderRefRemoved(t *testing.T) {
 	if err := k8sClient.Patch(testCtx, obj, patch); err != nil {
 		t.Fatalf("switch from Avi to NSX while removing provider reference: %v", err)
 	}
-	wire := lbcWithoutReference(obj.Name, "nsx")
-	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), wire); err != nil {
+	assertNSXWithoutProviderRef(t, obj.Name)
+}
+
+func TestLoadBalancerConfig_AviToNSX_CreateOrUpdate(t *testing.T) {
+	obj := validAviLBC("lbc-avi-to-nsx-create-or-update")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
 		t.Fatal(err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	updated := &netv1alpha1.LoadBalancerConfig{ObjectMeta: metav1.ObjectMeta{Name: obj.Name}}
+	if _, err := controllerutil.CreateOrUpdate(testCtx, k8sClient, updated, func() error {
+		updated.Spec.Type = netv1alpha1.LoadBalancerConfigTypeNSX
+		updated.Spec.ProviderRef = netv1alpha1.LoadBalancerConfigProviderReference{}
+		return nil
+	}); err != nil {
+		t.Fatalf("switch from Avi to NSX with CreateOrUpdate: %v", err)
+	}
+
+	assertNSXWithoutProviderRef(t, obj.Name)
+}
+
+func assertNSXWithoutProviderRef(t *testing.T, name string) {
+	t.Helper()
+	wire := &unstructured.Unstructured{}
+	wire.SetAPIVersion("netoperator.vmware.com/v1alpha1")
+	wire.SetKind("LoadBalancerConfig")
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: name}, wire); err != nil {
+		t.Fatalf("get LoadBalancerConfig %s: %v", name, err)
+	}
+	provider, found, err := unstructured.NestedString(wire.Object, "spec", "type")
+	if err != nil || !found || provider != "nsx" {
+		t.Fatalf("expected NSX type, got %q found=%v err=%v", provider, found, err)
 	}
 	if _, found, err := unstructured.NestedFieldNoCopy(wire.Object, "spec", "providerRef"); err != nil || found {
 		t.Fatalf("expected omitted providerRef, found=%v err=%v", found, err)
@@ -207,8 +238,7 @@ func TestLoadBalancerConfig_ProviderRefMutable_Admitted(t *testing.T) {
 	}
 }
 
-// Use unstructured objects to exercise actual field absence: the Go value-typed
-// ProviderRef is serialized even when it is zero-valued and tagged omitempty.
+// Use unstructured objects to exercise actual field absence explicitly.
 func lbcWithoutReference(name, provider string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{Object: map[string]interface{}{
 		"apiVersion": "netoperator.vmware.com/v1alpha1", "kind": "LoadBalancerConfig",

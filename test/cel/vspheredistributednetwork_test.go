@@ -120,7 +120,7 @@ func TestVSphereDistributedNetwork_IPAssignmentModeChange_Rejected(t *testing.T)
 	}
 }
 
-// --- dhcp/none mode: gateway/subnetMask/addressRanges/ipPools must be empty ---
+// --- dhcp/none mode: gateway/subnetMask/ipPools must be empty ---
 
 func TestVSphereDistributedNetwork_DHCPWithGateway_Rejected(t *testing.T) {
 	obj := unstrVDS("vds-dhcp-gateway", map[string]interface{}{
@@ -139,18 +139,6 @@ func TestVSphereDistributedNetwork_DHCPWithSubnetMask_Rejected(t *testing.T) {
 	})
 	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
 		t.Fatalf("expected rejection for subnetMask set under dhcp mode, got: %v", err)
-	}
-}
-
-func TestVSphereDistributedNetwork_DHCPWithAddressRanges_Rejected(t *testing.T) {
-	obj := unstrVDS("vds-dhcp-ranges", map[string]interface{}{
-		"ipAssignmentMode": string(netv1alpha1.IPAssignmentModeDHCP),
-		"addressRanges": []interface{}{
-			map[string]interface{}{"address": "10.0.0.10", "count": int64(4)},
-		},
-	})
-	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
-		t.Fatalf("expected rejection for addressRanges set under dhcp mode, got: %v", err)
 	}
 }
 
@@ -212,118 +200,6 @@ func TestVSphereDistributedNetwork_StaticPoolValid_Admitted(t *testing.T) {
 		t.Fatalf("expected admission, got: %v", err)
 	}
 	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
-}
-
-// --- addressRanges field validation ---
-
-func TestVSphereDistributedNetwork_AddressRangeInvalidAddress_Rejected(t *testing.T) {
-	obj := validVDS("vds-bad-range-address")
-	obj.Spec.AddressRanges = []netv1alpha1.VSphereDistributedNetworkIPRange{
-		{Address: "not-an-ip", Count: 4},
-	}
-	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
-		t.Fatalf("expected rejection for invalid address range address, got: %v", err)
-	}
-}
-
-func TestVSphereDistributedNetwork_AddressRangeZeroCount_Rejected(t *testing.T) {
-	obj := validVDS("vds-zero-count")
-	obj.Spec.AddressRanges = []netv1alpha1.VSphereDistributedNetworkIPRange{
-		{Address: "10.0.0.10", Count: 0},
-	}
-	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
-		t.Fatalf("expected rejection for addressRange count of 0, got: %v", err)
-	}
-}
-
-func TestVSphereDistributedNetwork_AddressRangeValid_Admitted(t *testing.T) {
-	obj := validVDS("vds-valid-range")
-	obj.Spec.AddressRanges = []netv1alpha1.VSphereDistributedNetworkIPRange{
-		{Address: "10.0.0.10", Count: 4},
-		{Address: "fe80::1", Count: 8},
-	}
-	if err := k8sClient.Create(testCtx, obj); err != nil {
-		t.Fatalf("expected admission, got: %v", err)
-	}
-	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
-}
-
-func TestVSphereDistributedNetwork_TooManyAddressRanges_Rejected(t *testing.T) {
-	ranges := make([]netv1alpha1.VSphereDistributedNetworkIPRange, 1025)
-	for i := range ranges {
-		ranges[i] = netv1alpha1.VSphereDistributedNetworkIPRange{
-			Address: fmt.Sprintf("10.%d.%d.1", i/256, i%256),
-			Count:   1,
-		}
-	}
-	obj := validVDS("vds-too-many-ranges")
-	obj.Spec.AddressRanges = ranges
-	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
-		t.Fatalf("expected rejection for 1025 addressRanges (maxItems=1024), got: %v", err)
-	}
-}
-
-// --- ipPools and addressRanges are mutually exclusive ---
-
-func TestVSphereDistributedNetwork_IPPoolsOnly_Admitted(t *testing.T) {
-	obj := validVDS("vds-ippools-only")
-	obj.Spec.IPPools = []netv1alpha1.IPPoolReference{{Name: "pool-1"}}
-	if err := k8sClient.Create(testCtx, obj); err != nil {
-		t.Fatalf("expected admission, got: %v", err)
-	}
-	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
-}
-
-func TestVSphereDistributedNetwork_IPPoolsAndAddressRanges_Rejected(t *testing.T) {
-	obj := validVDS("vds-ippools-and-ranges")
-	obj.Spec.IPPools = []netv1alpha1.IPPoolReference{{Name: "pool-1"}}
-	obj.Spec.AddressRanges = []netv1alpha1.VSphereDistributedNetworkIPRange{
-		{Address: "10.0.0.10", Count: 4},
-	}
-	if err := k8sClient.Create(testCtx, obj); !isRejected(err) {
-		t.Fatalf("expected rejection for both ipPools and addressRanges set, got: %v", err)
-	}
-}
-
-func TestVSphereDistributedNetwork_AddIPPoolsToAddressRanges_Rejected(t *testing.T) {
-	obj := validVDS("vds-add-ippools-to-ranges")
-	obj.Spec.AddressRanges = []netv1alpha1.VSphereDistributedNetworkIPRange{
-		{Address: "10.0.0.10", Count: 4},
-	}
-	if err := k8sClient.Create(testCtx, obj); err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
-
-	latest := &netv1alpha1.VSphereDistributedNetwork{}
-	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	latest.Spec.IPPools = []netv1alpha1.IPPoolReference{{Name: "pool-1"}}
-	if err := k8sClient.Update(testCtx, latest); !isRejected(err) {
-		t.Fatalf("expected rejection for adding ipPools to a network with addressRanges, got: %v", err)
-	}
-}
-
-func TestVSphereDistributedNetwork_SwitchIPPoolsToAddressRanges_Admitted(t *testing.T) {
-	obj := validVDS("vds-switch-ippools-to-ranges")
-	obj.Spec.IPPools = []netv1alpha1.IPPoolReference{{Name: "pool-1"}}
-	if err := k8sClient.Create(testCtx, obj); err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
-
-	latest := &netv1alpha1.VSphereDistributedNetwork{}
-	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	latest.Spec.IPPools = []netv1alpha1.IPPoolReference{}
-	latest.Spec.AddressRanges = []netv1alpha1.VSphereDistributedNetworkIPRange{
-		{Address: "10.0.0.10", Count: 4},
-	}
-	if err := k8sClient.Update(testCtx, latest); err != nil {
-		t.Fatalf("expected switching from ipPools to addressRanges in one update to be admitted, got: %v", err)
-	}
 }
 
 // --- DefaultPortConfig / VlanSpec / MacManagementPolicy ---

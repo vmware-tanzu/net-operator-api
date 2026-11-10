@@ -5,19 +5,20 @@
 package v1alpha2
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type VSphereDistributedNetworkConditionType string
+
 const (
-	// VSphereDistributedNetworkPortGroupFailure is the condition type set when a portgroup named by
-	// spec.portGroupID or spec.portGroupIDs doesn't exist, or vCenter Server can't be reached.
-	VSphereDistributedNetworkPortGroupFailure = "PortGroupFailure"
-	// VSphereDistributedNetworkIPPoolInvalid is the condition type set when the network has no
-	// usable IPPools.
-	VSphereDistributedNetworkIPPoolInvalid = "IPPoolInvalid"
-	// VSphereDistributedNetworkIPPoolPressure is the condition type set to True when the network's
-	// IPPools are low on free addresses.
-	VSphereDistributedNetworkIPPoolPressure = "IPPoolPressure"
+	// VSphereDistributedNetworkPortGroupFailure is added when PortGroupID specified either doesn't exist, or
+	// there was an error in communicating with vCenter Server.
+	VSphereDistributedNetworkPortGroupFailure VSphereDistributedNetworkConditionType = "PortGroupFailure"
+	// VSphereDistributedNetworkIPPoolInvalid is added when no valid IPPool references exists.
+	VSphereDistributedNetworkIPPoolInvalid VSphereDistributedNetworkConditionType = "IPPoolInvalid"
+	// VsphereDistributedNetworkIPPoolPressure condition status is set to True when IPPool is low on free IPs.
+	VsphereDistributedNetworkIPPoolPressure VSphereDistributedNetworkConditionType = "IPPoolPressure"
 )
 
 const (
@@ -28,136 +29,71 @@ const (
 	// when the portgroups named by portGroupIDs do not share the same default port configuration.
 	VSphereDistributedNetworkReasonPortGroupConfigMismatch = "PortGroupConfigMismatch"
 	// VSphereDistributedNetworkReasonIPPoolReconcileFailed is used with VSphereDistributedNetworkIPPoolInvalid
-	// when the IPPools for the address ranges could not be created, updated, or deleted.
+	// when the IPPools for spec.addressRanges could not be created, updated, or deleted.
 	VSphereDistributedNetworkReasonIPPoolReconcileFailed = "IPPoolReconcileFailed"
 )
 
-// IPAssignmentModeType is how addresses of one IP family are assigned on a network.
-//
-// +kubebuilder:validation:Enum=dhcp;staticpool;none
 type IPAssignmentModeType string
 
 const (
-	// IPAssignmentModeDHCP indicates addresses are assigned dynamically using DHCP.
+	// IPAssignmentModeDHCP indicates IP address is assigned dynamically using DHCP.
 	IPAssignmentModeDHCP IPAssignmentModeType = "dhcp"
-	// IPAssignmentModeStaticPool indicates addresses are assigned from the network's address ranges.
+	// IPAssignmentModeStaticPool indicates IP address is assigned from a static pool of IP addresses.
 	IPAssignmentModeStaticPool IPAssignmentModeType = "staticpool"
-	// IPAssignmentModeNone indicates no address is assigned and no DHCP client is configured.
+	// IPAssignmentModeNone indicates that no IP assignment will be performed.
+	// The operator will not assign an IP and no DHCP client will be configured.
 	IPAssignmentModeNone IPAssignmentModeType = "none"
 )
 
-// VSphereDistributedNetworkIPRange is a contiguous block of addresses that a network assigns from.
+// VSphereDistributedNetworkIPRange is the static IP range for a VSphereDistributedNetwork.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type VSphereDistributedNetworkIPRange struct {
-	// startingAddress is the first address of the range, in canonical form. Its IP family must
-	// match the block (ipv4 or ipv6) the range is listed in.
-	//
-	// +required
+	// address is the starting IPv4 or IPv6 address of the range.
+	// +kubebuilder:validation:XValidation:rule="self.matches('^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$') || self.matches('^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$')",message="Address must be a valid IPv4 or IPv6 address"
 	// +kubebuilder:validation:MinLength=2
-	// +kubebuilder:validation:MaxLength=39
-	// +kubebuilder:validation:XValidation:rule="isIP(self) && ip.isCanonical(self)",message="startingAddress must be a valid IP address in canonical form"
-	StartingAddress string `json:"startingAddress,omitempty"`
-
-	// addressCount is the number of addresses in the range.
-	//
+	// +kubebuilder:validation:MaxLength=45
 	// +required
+	Address string `json:"address,omitempty"`
+
+	// count is the number of addresses in the range when using static range assignment.
 	// +kubebuilder:validation:Minimum=1
-	AddressCount int64 `json:"addressCount,omitempty"`
-}
-
-// VSphereDistributedNetworkIPv4Config is the IPv4 configuration of a network.
-//
-// +kubebuilder:validation:XValidation:rule="self.assignmentMode == 'staticpool' ? (has(self.gateway) && has(self.prefixLength)) : true",message="gateway and prefixLength are required when assignmentMode is staticpool"
-// +kubebuilder:validation:XValidation:rule="self.assignmentMode != 'staticpool' ? (!has(self.gateway) && !has(self.prefixLength) && !has(self.addressRanges)) : true",message="gateway, prefixLength and addressRanges must be unset when assignmentMode is dhcp or none"
-// +kubebuilder:validation:XValidation:rule="!has(self.addressRanges) || self.addressRanges.all(r, !isIP(r.startingAddress) || ip(r.startingAddress).family() == 4)",message="addressRanges must contain IPv4 addresses"
-type VSphereDistributedNetworkIPv4Config struct {
-	// assignmentMode is how IPv4 addresses are assigned on the network. It can't be changed.
-	//
 	// +required
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="assignmentMode is immutable"
-	AssignmentMode IPAssignmentModeType `json:"assignmentMode,omitempty"`
-
-	// gateway is the IPv4 gateway for network interfaces. Set it only when assignmentMode is
-	// staticpool.
-	//
-	// +optional
-	// +kubebuilder:validation:MinLength=7
-	// +kubebuilder:validation:MaxLength=15
-	// +kubebuilder:validation:XValidation:rule="isIP(self) && ip(self).family() == 4 && ip.isCanonical(self)",message="gateway must be a valid IPv4 address in canonical form"
-	Gateway string `json:"gateway,omitempty"`
-
-	// prefixLength is the length of the IPv4 subnet prefix for network interfaces, for example 24
-	// for a /24 subnet. Set it only when assignmentMode is staticpool.
-	//
-	// +optional
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=32
-	PrefixLength *int32 `json:"prefixLength,omitempty"`
-
-	// addressRanges are the IPv4 ranges addresses are assigned from when assignmentMode is
-	// staticpool. The operator creates one IPPool per range, reports them in status.ipPools, and
-	// deletes the IPPool for a range when the range is removed.
-	//
-	// +optional
-	// +listType=atomic
-	// +kubebuilder:validation:MaxItems=1024
-	AddressRanges []VSphereDistributedNetworkIPRange `json:"addressRanges,omitempty"`
+	Count int64 `json:"count,omitempty"`
 }
 
-// VSphereDistributedNetworkIPv6Config is the IPv6 configuration of a network.
-//
-// +kubebuilder:validation:XValidation:rule="self.assignmentMode == 'staticpool' ? (has(self.gateway) && has(self.prefixLength)) : true",message="gateway and prefixLength are required when assignmentMode is staticpool"
-// +kubebuilder:validation:XValidation:rule="self.assignmentMode != 'staticpool' ? (!has(self.gateway) && !has(self.prefixLength) && !has(self.addressRanges)) : true",message="gateway, prefixLength and addressRanges must be unset when assignmentMode is dhcp or none"
-// +kubebuilder:validation:XValidation:rule="!has(self.addressRanges) || self.addressRanges.all(r, !isIP(r.startingAddress) || ip(r.startingAddress).family() == 6)",message="addressRanges must contain IPv6 addresses"
-type VSphereDistributedNetworkIPv6Config struct {
-	// assignmentMode is how IPv6 addresses are assigned on the network.
-	//
-	// +required
-	AssignmentMode IPAssignmentModeType `json:"assignmentMode,omitempty"`
-
-	// gateway is the IPv6 gateway for network interfaces. Set it only when assignmentMode is
-	// staticpool.
-	//
-	// +optional
-	// +kubebuilder:validation:MinLength=2
-	// +kubebuilder:validation:MaxLength=39
-	// +kubebuilder:validation:XValidation:rule="isIP(self) && ip(self).family() == 6 && ip.isCanonical(self)",message="gateway must be a valid IPv6 address in canonical form"
-	Gateway string `json:"gateway,omitempty"`
-
-	// prefixLength is the length of the IPv6 subnet prefix for network interfaces, for example 64
-	// for a /64 subnet. Set it only when assignmentMode is staticpool.
-	//
-	// +optional
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=128
-	PrefixLength *int32 `json:"prefixLength,omitempty"`
-
-	// addressRanges are the IPv6 ranges addresses are assigned from when assignmentMode is
-	// staticpool. The operator creates one IPPool per range, reports them in status.ipPools, and
-	// deletes the IPPool for a range when the range is removed.
-	//
-	// +optional
-	// +listType=atomic
-	// +kubebuilder:validation:MaxItems=1024
-	AddressRanges []VSphereDistributedNetworkIPRange `json:"addressRanges,omitempty"`
+// VSphereDistributedNetworkCondition describes the state of a VSphereDistributedNetwork at a certain point.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
+type VSphereDistributedNetworkCondition struct {
+	// Type is the type of VSphereDistributedNetwork condition.
+	Type VSphereDistributedNetworkConditionType `json:"type"`
+	// Status is the status of the condition.
+	// Can be True, False, Unknown.
+	Status corev1.ConditionStatus `json:"status"`
+	// Machine understandable string that gives the reason for condition's last transition.
+	Reason string `json:"reason,omitempty"`
+	// Human-readable message indicating details about last transition.
+	Message string `json:"message,omitempty"`
+	// Provides a timestamp for when the VSphereDistributedNetwork object last transitioned from one status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" patchStrategy:"replace"`
 }
 
-// VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.
-//
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.gateway) || self.gateway == '') : true",message="Gateway must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.subnetMask) || self.subnetMask == '') : true",message="SubnetMask must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.addressRanges) || size(self.addressRanges) == 0) : true",message="AddressRanges must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != '') : true",message="Gateway is required when IpAssignmentMode is staticpool or unset"
+// +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != '') : true",message="SubnetMask is required when IpAssignmentMode is staticpool or unset"
 // +kubebuilder:validation:XValidation:rule="!has(self.portGroupIDs) || size(self.portGroupIDs) == 0 || self.portGroupIDs[0] == self.portGroupID",message="portGroupIDs[0] must equal portGroupID when portGroupIDs is set"
+// VSphereDistributedNetworkSpec defines the desired state of VSphereDistributedNetwork.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type VSphereDistributedNetworkSpec struct {
-	// portGroupID is an existing vSphere Distributed PortGroup identifier.
-	//
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=64
-	PortGroupID string `json:"portGroupID,omitempty"`
+	// PortGroupID is an existing vSphere Distributed PortGroup identifier.
+	PortGroupID string `json:"portGroupID"`
 
 	// portGroupIDs is the ordered list of vSphere portgroup identifiers that back this network.
 	// All portgroups must be on the same subnet. Order is significant: portGroupIDs[0] is the
 	// primary portgroup and must equal portGroupID. When unset or empty, the network is backed
 	// by the single portgroup named by portGroupID. Use EffectivePortGroupIDs to read the
 	// resolved list.
-	//
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=32
@@ -165,16 +101,64 @@ type VSphereDistributedNetworkSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, y == x))",message="portGroupIDs must not contain duplicate entries"
 	PortGroupIDs []string `json:"portGroupIDs,omitempty"`
 
-	// ipv4 is the IPv4 configuration of the network. Set assignmentMode to none for a network
-	// without IPv4.
-	//
-	// +required
-	IPv4 VSphereDistributedNetworkIPv4Config `json:"ipv4,omitzero"`
-
-	// ipv6 is the IPv6 configuration of the network. When unset, the network has no IPv6.
-	//
+	// ipAssignmentMode to use for IPv4 addresses on network interfaces.
+	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPv4 AddressRanges, Gateway and SubnetMask
+	// fields should be empty/unset. When using IPAssignmentModeNone, no IPv4 IP will be assigned
+	// and no DHCP client will be configured.
+	// Note: For IPv6 address assignment, see IPv6AssignmentMode.
+	// +kubebuilder:validation:Enum=dhcp;staticpool;none
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ipAssignmentMode is immutable"
 	// +optional
-	IPv6 VSphereDistributedNetworkIPv6Config `json:"ipv6,omitzero"`
+	IPAssignmentMode IPAssignmentModeType `json:"ipAssignmentMode,omitempty"`
+
+	// IPv6AssignmentMode to use for IPv6 addresses on network interfaces. If unset, defaults to
+	// IPAssignmentModeNone (IPv6 disabled) for backward compatibility with existing IPv4-only
+	// deployments. To enable IPv6 support, explicitly set this field to IPAssignmentModeStaticPool
+	// or IPAssignmentModeDHCP. This allows different assignment modes for IPv4 and IPv6, for
+	// example static IPv4 pool assignment combined with DHCPv6 for IPv6.
+	// +optional
+	IPv6AssignmentMode IPAssignmentModeType `json:"ipv6AssignmentMode,omitempty"`
+
+	// Gateway setting to use for network interfaces. This field should only be set when using
+	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
+	// to an empty string.
+	// Note: The regex pattern performs IPv4 validation but also allows an empty string for backward compatibility.
+	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
+	// +kubebuilder:default:=""
+	// +optional
+	Gateway string `json:"gateway"`
+
+	// SubnetMask setting to use for network interfaces. This field should only be set when using
+	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
+	// to an empty string.
+	// Note: The regex pattern performs IPv4 validation but also allows an empty string for backward compatibility.
+	// +kubebuilder:validation:Pattern="^(|((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))$"
+	// +kubebuilder:default:=""
+	// +optional
+	SubnetMask string `json:"subnetMask"`
+
+	// IPv6Gateway setting to use for IPv6 addresses on network interfaces. This field should only
+	// be set when using IPv6AssignmentMode IPAssignmentModeStaticPool. For all other modes
+	// (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be empty/unset.
+	// +optional
+	IPv6Gateway string `json:"ipv6Gateway,omitempty"`
+
+	// IPv6Prefix is the prefix length for IPv6 addresses assigned to network interfaces (e.g. 64
+	// for a /64 network). This field should only be set when using IPv6AssignmentMode
+	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone),
+	// this should be unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=128
+	IPv6Prefix *int32 `json:"ipv6Prefix,omitempty"`
+
+	// addressRanges is a list of IP ranges for static IP assignment. The operator creates and manages
+	// one IPPool per range and reports them in status.ipPools. Removing a range deletes the IPPool
+	// created for it.
+	// +optional
+	// +kubebuilder:validation:MaxItems=1024
+	// +listType=atomic
+	AddressRanges []VSphereDistributedNetworkIPRange `json:"addressRanges,omitempty"`
 }
 
 // EffectivePortGroupIDs returns the portgroups that back the network, in order. It returns a copy
@@ -188,19 +172,14 @@ func (s *VSphereDistributedNetworkSpec) EffectivePortGroupIDs() []string {
 }
 
 // IPPoolReference is a reference to a netoperator.vmware.com IPPool.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type IPPoolReference struct {
 	// name is the name of the IPPool.
-	//
-	// +required
-	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=253
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// apiVersion is the API version of the IPPool.
-	//
 	// +optional
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=64
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 
@@ -217,58 +196,45 @@ const (
 )
 
 // VLANTrunkRange represents a range of VLAN IDs for trunk configuration
-//
-//nolint:kubeapilinter // status-only; identical to v1alpha1 so conversion is a straight copy
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type VLANTrunkRange struct {
-	// start represents the beginning of the VLAN ID range (inclusive).
-	//
-	// +required
+	// Start represents the beginning of the VLAN ID range (inclusive).
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4094
 	Start int32 `json:"start"`
 
-	// end represents the end of the VLAN ID range (inclusive).
-	//
-	// +required
+	// End represents the end of the VLAN ID range (inclusive).
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4094
 	End int32 `json:"end"`
 }
 
 // VlanSpec represents the VLAN configuration.
-//
-//nolint:kubeapilinter // status-only; identical to v1alpha1 so conversion is a straight copy
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type VlanSpec struct {
-	// type indicates the type of VLAN configuration (standard, trunk, or private).
-	//
-	// +required
+	// Type indicates the type of VLAN configuration (standard, trunk, or private).
 	// +kubebuilder:validation:Enum=standard;trunk;private
 	Type VLANType `json:"type"`
 
-	// vlanID specifies the VLAN ID when Type is VLANTypeStandard.
+	// VlanID specifies the VLAN ID when Type is VLANTypeStandard.
 	// This field is ignored for other VLAN types.
 	// Possible values:
 	// - A value of 0 indicates there is no VLAN configuration for the port.
 	// - A value from 1 to 4094 specifies a VLAN ID for the port.
-	//
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4094
 	VlanID *int32 `json:"vlanID,omitempty"`
 
-	// trunkRange specifies the ranges of allowed VLANs when Type is VLANTypeTrunk.
+	// TrunkRange specifies the ranges of allowed VLANs when Type is VLANTypeTrunk.
 	// This field is ignored for other VLAN types.
 	// Each range's Start and End values must be between 0 and 4094 inclusive.
 	// Overlapping ranges are allowed.
-	//
 	// +optional
-	// +listType=atomic
-	// +kubebuilder:validation:MaxItems=4095
 	TrunkRange []VLANTrunkRange `json:"trunkRange,omitempty"`
 
-	// privateVlanID specifies the private VLAN ID when Type is VLANTypePrivate.
+	// PrivateVlanID specifies the private VLAN ID when Type is VLANTypePrivate.
 	// This field is ignored for other VLAN types.
-	//
 	// +optional
 	PrivateVlanID *int32 `json:"privateVlanID,omitempty"`
 }
@@ -283,143 +249,127 @@ const (
 	MacLimitPolicyDrop MacLimitPolicyType = "drop"
 )
 
-// MacLearningPolicy represents the MAC learning policy configuration. It is reported in status
-// only and matches v1alpha1 field for field, so conversion is a straight copy.
-//
-//nolint:kubeapilinter // status-only; identical to v1alpha1 so conversion is a straight copy
+// MacLearningPolicy represents the MAC learning policy configuration.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type MacLearningPolicy struct {
-	// enabled indicates whether MAC learning is enabled.
-	//
-	// +required
+	// Enabled indicates whether MAC learning is enabled.
 	Enabled bool `json:"enabled"`
 
-	// allowUnicastFlooding indicates whether to allow flooding of unlearned MAC for ingress traffic.
-	//
+	// AllowUnicastFlooding indicates whether to allow flooding of unlearned MAC for ingress traffic.
 	// +optional
 	AllowUnicastFlooding *bool `json:"allowUnicastFlooding,omitempty"`
 
-	// limit represents the maximum number of MAC addresses that can be learned.
-	//
+	// Limit represents the maximum number of MAC addresses that can be learned.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4096
 	Limit *int32 `json:"limit,omitempty"`
 
-	// limitPolicy represents the policy to be used when the limit is exceeded.
-	//
+	// LimitPolicy represents the policy to be used when the limit is exceeded.
 	// +optional
 	// +kubebuilder:validation:Enum=allow;drop
 	LimitPolicy *MacLimitPolicyType `json:"limitPolicy,omitempty"`
 }
 
-// MacManagementPolicy represents the MAC management policy configuration. It is reported in
-// status only and matches v1alpha1 field for field, so conversion is a straight copy.
-//
-//nolint:kubeapilinter // status-only; identical to v1alpha1 so conversion is a straight copy
+// MacManagementPolicy represents the MAC management policy configuration.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type MacManagementPolicy struct {
-	// allowPromiscuous indicates whether promiscuous mode is enabled. Determines whether or not all
+	// AllowPromiscuous indicates whether promiscuous mode is enabled. Determines whether or not all
 	// traffic is seen on the port.
-	//
 	// +optional
 	AllowPromiscuous *bool `json:"allowPromiscuous,omitempty"`
 
-	// macChanges specifies whether virtual machines can receive frames with a Mac Address that is different from the one configured in the VMX.
-	//
+	// MacChanges specifies whether virtual machines can receive frames with a Mac Address that is different from the one configured in the VMX.
 	// +optional
 	MacChanges *bool `json:"macChanges,omitempty"`
 
-	// forgedTransmits indicates whether or not the virtual network adapter should be allowed to send
+	// ForgedTransmits indicates whether or not the virtual network adapter should be allowed to send
 	// network traffic with a different MAC address than the one assigned to it.
-	//
 	// +optional
 	ForgedTransmits *bool `json:"forgedTransmits,omitempty"`
 
-	// macLearningPolicy represents the MAC learning policy configuration.
-	//
+	// MacLearningPolicy represents the MAC learning policy configuration.
 	// +optional
 	MacLearningPolicy *MacLearningPolicy `json:"macLearningPolicy,omitempty"`
 }
 
 // VSphereDistributedPortConfig represents the port-level configuration for a vSphere Distributed Network's ports.
-//
-//nolint:kubeapilinter // status-only; identical to v1alpha1 so conversion is a straight copy
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type VSphereDistributedPortConfig struct {
-	// vlan represents the VLAN configuration.
-	//
+	// Vlan represents the VLAN configuration.
 	// +optional
 	Vlan *VlanSpec `json:"vlan,omitempty"`
 
-	// macManagementPolicy represents the MAC management policy configuration.
-	//
+	// MacManagementPolicy represents the MAC management policy configuration.
 	// +optional
 	MacManagementPolicy *MacManagementPolicy `json:"macManagementPolicy,omitempty"`
 }
 
 // VSphereDistributedNetworkStatus defines the observed state of VSphereDistributedNetwork.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type VSphereDistributedNetworkStatus struct {
-	// conditions describe the current state of the network.
-	//
+	// Conditions is an array of current observed vSphere Distributed network conditions.
+	Conditions []VSphereDistributedNetworkCondition `json:"conditions,omitempty"`
+
+	// DefaultPortConfig represents the default port-level configuration that applies to all ports
+	// unless overridden at the individual port level.
+	// If unset, indicates that no default port-level configuration has been retrieved yet for this network.
 	// +optional
-	// +listType=map
-	// +listMapKey=type
-	// +kubebuilder:validation:MaxItems=32
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	DefaultPortConfig *VSphereDistributedPortConfig `json:"defaultPortConfig,omitempty"`
 
 	// ipPools are the IPPools that addresses on this network are allocated from. When the network
-	// has address ranges, the operator sets it to the IPPools it created for them, in range order
-	// (IPv4 ranges first). Networks created through v1alpha1 without address ranges carry the
-	// IPPools named in v1alpha1 spec.ipPools here.
-	//
+	// has address ranges, the operator sets it to the IPPools it created for them. For a network
+	// created through v1alpha1 without address ranges, it holds the references written to
+	// v1alpha1 spec.ipPools.
 	// +optional
 	// +listType=atomic
 	// +kubebuilder:validation:MaxItems=1024
 	IPPools []IPPoolReference `json:"ipPools,omitempty"`
-
-	// defaultPortConfig represents the default port-level configuration that applies to all ports
-	// unless overridden at the individual port level.
-	// If unset, indicates that no default port-level configuration has been retrieved yet for this network.
-	//
-	// +optional
-	DefaultPortConfig *VSphereDistributedPortConfig `json:"defaultPortConfig,omitempty"`
 }
 
-// VSphereDistributedNetwork represents schema for a network backed by a vSphere Distributed PortGroup on vSphere
-// Distributed switch.
-//
-// The status subresource is deliberately not enabled: v1alpha1 clients set status.ipPools through
-// v1alpha1 spec.ipPools with full-object updates.
-//
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:storageversion
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 253 && self.metadata.name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$')",message="metadata.name must be a lowercase RFC 1123 DNS subdomain (alphanumeric or '-' or '.', each segment starting/ending with alphanumeric; max 253 characters)"
-type VSphereDistributedNetwork struct { //nolint:kubeapilinter // no status subresource; see the type comment
-	metav1.TypeMeta `json:",inline"`
-	// metadata is the standard object metadata.
-	//
-	// +optional
+
+// VSphereDistributedNetwork represents schema for a network backed by a vSphere Distributed PortGroup on vSphere
+// Distributed switch.
+//
+// v1alpha2 has the spec of v1alpha1 without ipPools, which are status here because the operator owns
+// them. The status subresource is not enabled, because v1alpha1 clients set status.ipPools through
+// v1alpha1 spec.ipPools with full-object updates.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
+type VSphereDistributedNetwork struct {
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// spec is the desired state of the network.
-	//
-	// +required
-	Spec VSphereDistributedNetworkSpec `json:"spec,omitzero"`
-
-	// status is the observed state of the network.
-	//
-	// +optional
-	Status *VSphereDistributedNetworkStatus `json:"status,omitempty"`
+	Spec   VSphereDistributedNetworkSpec   `json:"spec,omitempty"`
+	Status VSphereDistributedNetworkStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
 // VSphereDistributedNetworkList contains a list of VSphereDistributedNetwork
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
 type VSphereDistributedNetworkList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VSphereDistributedNetwork `json:"items"`
+}
+
+// VSphereDistributedNetworkRef is a reference to a VSphereDistributedNetwork
+// resource by name.
+//nolint:kubeapilinter // mirrors v1alpha1 so that conversion is a field copy
+type VSphereDistributedNetworkRef struct {
+	// name is the name of the VSphereDistributedNetwork resource.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name,omitempty"`
 }
 
 func init() {

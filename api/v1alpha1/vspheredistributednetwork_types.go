@@ -42,6 +42,21 @@ const (
 	IPAssignmentModeNone IPAssignmentModeType = "none"
 )
 
+// VSphereDistributedNetworkIPRange is the static IP range for a VSphereDistributedNetwork.
+type VSphereDistributedNetworkIPRange struct {
+	// address is the starting IPv4 or IPv6 address of the range.
+	// +kubebuilder:validation:XValidation:rule="self.matches('^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$') || self.matches('^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$')",message="Address must be a valid IPv4 or IPv6 address"
+	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:MaxLength=45
+	// +required
+	Address string `json:"address,omitempty"`
+
+	// count is the number of addresses in the range when using static range assignment.
+	// +kubebuilder:validation:Minimum=1
+	// +required
+	Count int64 `json:"count,omitempty"`
+}
+
 // VSphereDistributedNetworkCondition describes the state of a VSphereDistributedNetwork at a certain point.
 type VSphereDistributedNetworkCondition struct {
 	// Type is the type of VSphereDistributedNetwork condition.
@@ -59,6 +74,7 @@ type VSphereDistributedNetworkCondition struct {
 
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.gateway) || self.gateway == '') : true",message="Gateway must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.subnetMask) || self.subnetMask == '') : true",message="SubnetMask must be empty when IpAssignmentMode is dhcp or none"
+// +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.addressRanges) || size(self.addressRanges) == 0) : true",message="AddressRanges must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(has(self.ipAssignmentMode) && (self.ipAssignmentMode == 'dhcp' || self.ipAssignmentMode == 'none')) ? (!has(self.ipPools) || size(self.ipPools) == 0) : true",message="IPPools must be empty when IpAssignmentMode is dhcp or none"
 // +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.gateway) && self.gateway != '') : true",message="Gateway is required when IpAssignmentMode is staticpool or unset"
 // +kubebuilder:validation:XValidation:rule="(!has(self.ipAssignmentMode) || self.ipAssignmentMode == 'staticpool') ? (has(self.subnetMask) && self.subnetMask != '') : true",message="SubnetMask is required when IpAssignmentMode is staticpool or unset"
@@ -84,17 +100,27 @@ type VSphereDistributedNetworkSpec struct {
 	// For IPAssignmentModeDHCP and IPAssignmentModeNone, the IPv4 IPPools, Gateway and SubnetMask
 	// fields should be empty/unset. When using IPAssignmentModeNone, no IPv4 IP will be assigned
 	// and no DHCP client will be configured.
+	// Note: For IPv6 address assignment, see IPv6AssignmentMode.
 	// +kubebuilder:validation:Enum=dhcp;staticpool;none
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ipAssignmentMode is immutable"
 	// +optional
 	IPAssignmentMode IPAssignmentModeType `json:"ipAssignmentMode,omitempty"`
 
+	// IPv6AssignmentMode to use for IPv6 addresses on network interfaces. If unset, defaults to
+	// IPAssignmentModeNone (IPv6 disabled) for backward compatibility with existing IPv4-only
+	// deployments. To enable IPv6 support, explicitly set this field to IPAssignmentModeStaticPool
+	// or IPAssignmentModeDHCP. This allows different assignment modes for IPv4 and IPv6, for
+	// example static IPv4 pool assignment combined with DHCPv6 for IPv6.
+	// +optional
+	IPv6AssignmentMode IPAssignmentModeType `json:"ipv6AssignmentMode,omitempty"`
+
 	// IPPools references list of IPPool objects. This field should only be set when using
 	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be set
 	// to an empty list.
+	// When addressRanges is non-empty, the operator reconciles ipPools against those ranges:
+	// references that do not correspond to any address range are removed, new references are added
+	// where needed, and every retained reference (including ones that already matched a range) is reconciled.
 	// This field is served as status.ipPools in v1alpha2: writing it here sets that status list.
-	// For networks with address ranges, which only v1alpha2 can express, it lists the IPPools the
-	// operator manages for those ranges.
 	// +kubebuilder:default:={}
 	// +optional
 	IPPools []IPPoolReference `json:"ipPools"`
@@ -116,6 +142,30 @@ type VSphereDistributedNetworkSpec struct {
 	// +kubebuilder:default:=""
 	// +optional
 	SubnetMask string `json:"subnetMask"`
+
+	// IPv6Gateway setting to use for IPv6 addresses on network interfaces. This field should only
+	// be set when using IPv6AssignmentMode IPAssignmentModeStaticPool. For all other modes
+	// (IPAssignmentModeDHCP, IPAssignmentModeNone), this should be empty/unset.
+	// +optional
+	IPv6Gateway string `json:"ipv6Gateway,omitempty"`
+
+	// IPv6Prefix is the prefix length for IPv6 addresses assigned to network interfaces (e.g. 64
+	// for a /64 network). This field should only be set when using IPv6AssignmentMode
+	// IPAssignmentModeStaticPool. For all other modes (IPAssignmentModeDHCP, IPAssignmentModeNone),
+	// this should be unset.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=128
+	IPv6Prefix *int32 `json:"ipv6Prefix,omitempty"`
+
+	// addressRanges is a list of IP ranges for static IP assignment.
+	// When non-empty, the operator reconciles ipPools against this list: IPPool references that do
+	// not map to any range here are removed, new references are added for ranges that require them,
+	// and all references that remain are reconciled (including those that already mapped to a range).
+	// +optional
+	// +kubebuilder:validation:MaxItems=1024
+	// +listType=atomic
+	AddressRanges []VSphereDistributedNetworkIPRange `json:"addressRanges,omitempty"`
 }
 
 // EffectivePortGroupIDs returns the portgroups that back the network, in order. It returns a copy

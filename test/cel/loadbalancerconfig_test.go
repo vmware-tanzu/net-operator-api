@@ -103,7 +103,7 @@ func TestLoadBalancerConfig_RequiredProviderRef_Rejected(t *testing.T) {
 		t.Run(provider, func(t *testing.T) {
 			obj := lbcWithoutReference("lbc-no-ref-"+provider, provider)
 			err := k8sClient.Create(testCtx, obj)
-			requireLBCRejection(t, err, "spec.providerRef is required except for nsx")
+			requireLBCRejection(t, err, "spec.providerRef is required")
 			if strings.Contains(err.Error(), "no such key") {
 				t.Fatalf("unexpected CEL evaluation error: %v", err)
 			}
@@ -195,7 +195,7 @@ func TestLoadBalancerConfig_NSXToAvi_Transition_Admitted(t *testing.T) {
 	if err := unstructured.SetNestedField(obj.Object, "avi", "spec", "type"); err != nil {
 		t.Fatal(err)
 	}
-	requireLBCRejection(t, k8sClient.Update(testCtx, obj), "spec.providerRef is required except for nsx")
+	requireLBCRejection(t, k8sClient.Update(testCtx, obj), "spec.providerRef is required")
 	invalidRef := map[string]interface{}{"apiGroup": "netoperator.vmware.com", "kind": "FoundationLoadBalancerConfig", "name": "wrong-provider"}
 	if err := unstructured.SetNestedMap(obj.Object, invalidRef, "spec", "providerRef"); err != nil {
 		t.Fatal(err)

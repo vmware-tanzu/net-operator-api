@@ -77,15 +77,26 @@ const (
 
 	// LoadBalancerConfigTypeFoundation is the FoundationLoadBalancerConfigType for VCF Foundation Load Balancer.
 	LoadBalancerConfigTypeFoundation LoadBalancerConfigType = "foundation"
+
+	// LoadBalancerConfigTypeNSX is the LoadBalancerConfigType for NSX-T/VPC Load Balancer.
+	LoadBalancerConfigTypeNSX LoadBalancerConfigType = "nsx"
 )
 
 // LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig
+// +kubebuilder:validation:XValidation:rule="self.type == 'nsx' || has(self.providerRef)",message="spec.providerRef is required"
+// +kubebuilder:validation:XValidation:rule="!has(self.providerRef) || (self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind in ['HAProxyLoadBalancerConfig', 'HAProxy']) || self.type == 'nsx'",message="providerRef.kind must match spec.type"
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.
-	// +kubebuilder:validation:Enum=haproxy;avi;foundation
+	// It is immutable except for transitions between avi and nsx.
+	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsx
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf == 'nsx' && self == 'avi') || (oldSelf == 'avi' && self == 'nsx')",message="spec.type is immutable except between avi and nsx"
 	Type LoadBalancerConfigType `json:"type"`
-	// ProviderRef is reference to a load balancer provider object that provides the details for this type of load balancer
-	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef"`
+	// providerRef references the load balancer provider configuration.
+	// It is required for Avi, HAProxy, and Foundation load balancers.
+	// The referenced object's kind must match the selected provider type.
+	// For haproxy, both HAProxyLoadBalancerConfig and the legacy HAProxy kind are supported.
+	// +optional
+	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef,omitempty,omitzero"` //nolint:kubeapilinter // Preserve Go source compatibility with existing clients; omitzero omits an unset reference.
 }
 
 // LoadBalancerConfigStatus defines the observed state of LoadBalancerConfig
@@ -104,6 +115,8 @@ type LoadBalancerConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// spec defines the desired load balancer configuration.
+	// +required
 	Spec   LoadBalancerConfigSpec   `json:"spec,omitempty"`
 	Status LoadBalancerConfigStatus `json:"status,omitempty"`
 }

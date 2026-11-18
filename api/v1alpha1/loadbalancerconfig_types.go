@@ -79,20 +79,20 @@ const (
 	LoadBalancerConfigTypeFoundation LoadBalancerConfigType = "foundation"
 
 	// LoadBalancerConfigTypeNSX is the LoadBalancerConfigType for NSX-T/VPC Load Balancer.
-	LoadBalancerConfigTypeNSX LoadBalancerConfigType = "nsx"
+	LoadBalancerConfigTypeNSX LoadBalancerConfigType = "nsxlb"
 )
 
 // LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig
-// +kubebuilder:validation:XValidation:rule="self.type == 'nsx' || has(self.providerRef)",message="spec.providerRef is required"
-// +kubebuilder:validation:XValidation:rule="!has(self.providerRef) || (self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind in ['HAProxyLoadBalancerConfig', 'HAProxy']) || self.type == 'nsx'",message="providerRef.kind must match spec.type"
+// +kubebuilder:validation:XValidation:rule="has(self.providerRef)",message="spec.providerRef is required"
+// +kubebuilder:validation:XValidation:rule="!has(self.providerRef) || (self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind in ['HAProxyLoadBalancerConfig', 'HAProxy']) || (self.type == 'nsxlb' && self.providerRef.kind == 'NSXLoadBalancerConfig')",message="providerRef.kind must match spec.type"
 type LoadBalancerConfigSpec struct {
 	// Type describes type of load balancer.
-	// It is immutable except for transitions between avi and nsx.
-	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsx
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf == 'nsx' && self == 'avi') || (oldSelf == 'avi' && self == 'nsx')",message="spec.type is immutable except between avi and nsx"
+	// It is immutable except for transitions between avi and nsxlb.
+	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsxlb
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf == 'nsxlb' && self == 'avi') || (oldSelf == 'avi' && self == 'nsxlb')",message="spec.type is immutable except between avi and nsxlb"
 	Type LoadBalancerConfigType `json:"type"`
 	// providerRef references the load balancer provider configuration.
-	// It is required for Avi, HAProxy, and Foundation load balancers.
+	// It is required for all load balancer types.
 	// The referenced object's kind must match the selected provider type.
 	// For haproxy, both HAProxyLoadBalancerConfig and the legacy HAProxy kind are supported.
 	// +optional

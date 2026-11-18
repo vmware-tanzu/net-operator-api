@@ -8,60 +8,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	// NSXEdgeIDAnnotation identifies the discovered NSX integration edge.
-	NSXEdgeIDAnnotation = "netoperator.vmware.com/nsx-edge-id"
-	// NSXEdgeNameAnnotation names the discovered NSX integration edge.
-	NSXEdgeNameAnnotation = "netoperator.vmware.com/nsx-edge-name"
-	// NSXIngressTLSExternallyManagedAnnotation preserves a user-provided ingress certificate.
-	NSXIngressTLSExternallyManagedAnnotation = "netoperator.vmware.com/ingress-tls-externally-managed"
-	// NSXLoadBalancerCertificateSynced reports whether the certificate has been published for consumption.
-	NSXLoadBalancerCertificateSynced = "CertificateSynced"
-)
-
-// NSXLoadBalancerConfigSpec configures native NSX load balancing.
+// NSXLoadBalancerConfigSpec defines the configuration for NSX Load Balancer.
 type NSXLoadBalancerConfigSpec struct {
-	// certificateSecretRef identifies a TLS Secret containing the default HTTPS
-	// ingress certificate chain in tls.crt and its matching private key in tls.key.
-	// Both the name and namespace must be specified. Replacing the Secret updates
-	// the desired certificate; publication does not imply application by NSX.
+	// certificateSecretRef references a TLS Secret containing the default ingress
+	// certificate chain (tls.crt) and matching private key (tls.key).
 	//
 	// +required
-	// +kubebuilder:validation:XValidation:rule="has(self.name) && self.name != '' && has(self.namespace) && self.namespace != ''",message="certificateSecretRef.name and namespace are required"
-	CertificateSecretRef ClientSecretReference `json:"certificateSecretRef,omitempty"` //nolint:kubeapilinter // requiredfields: CEL rejects an empty reference; keep the provider reference value-typed.
-}
-
-// NSXLoadBalancerConfigStatus reports publication of the native ingress certificate.
-type NSXLoadBalancerConfigStatus struct {
-	// conditions describes certificate publication. CertificateSynced does not
-	// indicate whether NSX has applied the published certificate.
-	//
-	// +optional
-	// +listType=map
-	// +listMapKey=type
-	// +kubebuilder:validation:MaxItems=32
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="has(self.name) && self.name != '' && has(self.namespace) && self.namespace != ''",message="certificateSecretRef.name and namespace must be non-empty"
+	CertificateSecretRef ClientSecretReference `json:"certificateSecretRef,omitempty"` //nolint:kubeapilinter // requiredfields: CEL validates the value-typed reference.
 }
 
 // +genclient
 // +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
-// +kubebuilder:subresource:status
 
-// NSXLoadBalancerConfig is the configuration for a native NSX load balancer.
+// NSXLoadBalancerConfig configures NSX Load Balancer.
 type NSXLoadBalancerConfig struct {
 	metav1.TypeMeta `json:",inline"`
-	// metadata identifies this configuration.
+	// metadata contains the resource name, labels and annotations.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// spec defines the desired native load balancer configuration.
+	// spec defines the desired NSX load balancer configuration.
 	// +required
 	Spec NSXLoadBalancerConfigSpec `json:"spec,omitempty,omitzero"`
-	// status describes the observed certificate publication state.
-	// +optional
-	Status *NSXLoadBalancerConfigStatus `json:"status,omitempty,omitzero"`
 }
 
 // +kubebuilder:object:root=true

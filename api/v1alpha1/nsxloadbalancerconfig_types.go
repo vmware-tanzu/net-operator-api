@@ -5,7 +5,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,7 +28,7 @@ type NSXLoadBalancerConfigSpec struct {
 	//
 	// +required
 	// +kubebuilder:validation:XValidation:rule="has(self.name) && self.name != '' && has(self.namespace) && self.namespace != ''",message="certificateSecretRef.name and namespace are required"
-	CertificateSecretRef corev1.SecretReference `json:"certificateSecretRef,omitempty"`
+	CertificateSecretRef ClientSecretReference `json:"certificateSecretRef,omitempty"` //nolint:kubeapilinter // requiredfields: CEL rejects an empty reference; keep the provider reference value-typed.
 }
 
 // NSXLoadBalancerConfigStatus reports publication of the native ingress certificate.
@@ -52,7 +51,7 @@ type NSXLoadBalancerConfigStatus struct {
 
 // NSXLoadBalancerConfig is the configuration for a native NSX load balancer.
 type NSXLoadBalancerConfig struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
 	// metadata identifies this configuration.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`

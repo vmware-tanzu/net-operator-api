@@ -1,0 +1,539 @@
+// © Broadcom. All Rights Reserved.
+// The term "Broadcom" refers to Broadcom Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: Apache-2.0
+
+package cel_test
+
+import (
+	"reflect"
+	"strings"
+	"testing"
+
+	netv1alpha1 "github.com/vmware-tanzu/net-operator-api/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+func validFoundationLBC(name string) *netv1alpha1.LoadBalancerConfig {
+	return &netv1alpha1.LoadBalancerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: netv1alpha1.LoadBalancerConfigSpec{
+			Type: netv1alpha1.LoadBalancerConfigTypeFoundation,
+			ProviderRef: netv1alpha1.LoadBalancerConfigProviderReference{
+				APIGroup: "netoperator.vmware.com",
+				Kind:     "FoundationLoadBalancerConfig",
+				Name:     "my-flb",
+			},
+		},
+	}
+}
+
+func validAviLBC(name string) *netv1alpha1.LoadBalancerConfig {
+	return &netv1alpha1.LoadBalancerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: netv1alpha1.LoadBalancerConfigSpec{
+			Type: netv1alpha1.LoadBalancerConfigTypeAvi,
+			ProviderRef: netv1alpha1.LoadBalancerConfigProviderReference{
+				APIGroup: "netoperator.vmware.com",
+				Kind:     "AviLoadBalancerConfig",
+				Name:     "my-avi",
+			},
+		},
+	}
+}
+
+func validHAProxyLBC(name string) *netv1alpha1.LoadBalancerConfig {
+	return &netv1alpha1.LoadBalancerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: netv1alpha1.LoadBalancerConfigSpec{
+			Type: netv1alpha1.LoadBalancerConfigTypeHAProxy,
+			ProviderRef: netv1alpha1.LoadBalancerConfigProviderReference{
+				APIGroup: "netoperator.vmware.com",
+				Kind:     "HAProxyLoadBalancerConfig",
+				Name:     "my-haproxy",
+			},
+		},
+	}
+}
+
+func validNSXLBC(name string) *netv1alpha1.LoadBalancerConfig {
+	return &netv1alpha1.LoadBalancerConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: netv1alpha1.LoadBalancerConfigSpec{
+			Type: netv1alpha1.LoadBalancerConfigTypeNSXLB,
+			ProviderRef: netv1alpha1.LoadBalancerConfigProviderReference{
+				APIGroup: "netoperator.vmware.com",
+				Kind:     "NSXLoadBalancerConfig",
+				Name:     "my-nsx",
+			},
+		},
+	}
+}
+
+func TestLoadBalancerConfig_Valid_Admitted(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		obj  *netv1alpha1.LoadBalancerConfig
+	}{
+		{"foundation", validFoundationLBC("lbc-valid-flb")},
+		{"avi", validAviLBC("lbc-valid-avi")},
+		{"haproxy", validHAProxyLBC("lbc-valid-haproxy")},
+		{"nsxlb", validNSXLBC("lbc-valid-nsx")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := k8sClient.Create(testCtx, tc.obj); err != nil {
+				t.Fatalf("expected admission for %s, got: %v", tc.name, err)
+			}
+			_ = k8sClient.Delete(testCtx, tc.obj)
+		})
+	}
+}
+
+func TestLoadBalancerConfig_RequiredProviderRef_Rejected(t *testing.T) {
+	for _, provider := range []string{"foundation", "avi", "haproxy", "nsxlb"} {
+		t.Run(provider, func(t *testing.T) {
+			for _, tc := range []struct {
+				name    string
+				value   interface{}
+				omit    bool
+				message string
+			}{
+				{name: "omitted", omit: true, message: "spec.providerRef: Required value"},
+				{name: "null", value: nil, message: "spec.providerRef: Required value"},
+				{name: "empty", value: map[string]interface{}{}, message: "spec.providerRef.apiGroup: Required value"},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					obj := lbcWithoutReference("lbc-ref-"+provider+"-"+tc.name, provider)
+					if !tc.omit {
+						if err := unstructured.SetNestedField(obj.Object, tc.value, "spec", "providerRef"); err != nil {
+							t.Fatal(err)
+						}
+					}
+					err := k8sClient.Create(testCtx, obj)
+					requireLBCRejection(t, err, tc.message)
+					if strings.Contains(err.Error(), "no such key") {
+						t.Fatalf("unexpected CEL evaluation error: %v", err)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestLoadBalancerConfig_ProviderRefKindMismatch_Rejected(t *testing.T) {
+	for _, newObject := range []func(string) *netv1alpha1.LoadBalancerConfig{
+		validFoundationLBC, validAviLBC, validHAProxyLBC, validNSXLBC,
+	} {
+		for _, kind := range []string{"FoundationLoadBalancerConfig", "AviLoadBalancerConfig", "HAProxyLoadBalancerConfig", "NSXLoadBalancerConfig", "Unknown", ""} {
+			obj := newObject("lbc-kind-mismatch")
+			if obj.Spec.ProviderRef.Kind == kind {
+				continue
+			}
+			t.Run(string(obj.Spec.Type)+"/"+kind, func(t *testing.T) {
+				obj.Spec.ProviderRef.Kind = kind
+				requireLBCRejection(t, k8sClient.Create(testCtx, obj), "providerRef.kind must match spec.type")
+			})
+		}
+	}
+}
+
+func TestLoadBalancerConfig_InvalidTypeEnum_Rejected(t *testing.T) {
+	for _, provider := range []netv1alpha1.LoadBalancerConfigType{"unsupported-provider", "nsx"} {
+		t.Run(string(provider), func(t *testing.T) {
+			obj := validFoundationLBC("lbc-invalid-type-" + string(provider))
+			obj.Spec.Type = provider
+			err := k8sClient.Create(testCtx, obj)
+			requireLBCRejection(t, err, "spec.type: Unsupported value")
+		})
+	}
+}
+
+func TestLoadBalancerConfig_AviToNSX_ProviderRefRemoved_Rejected(t *testing.T) {
+	obj := validAviLBC("lbc-avi-to-nsx")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+	patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"type":"nsxlb","providerRef":null}}`))
+	requireLBCRejection(t, k8sClient.Patch(testCtx, obj, patch), "spec.providerRef: Required value")
+	if latest := getLBC(t, obj); latest.Spec.Type != netv1alpha1.LoadBalancerConfigTypeAvi {
+		t.Fatalf("rejected transition changed provider: %+v", latest.Spec)
+	}
+}
+
+func TestLoadBalancerConfig_AviToNSX_Transition_Admitted(t *testing.T) {
+	obj := validAviLBC("lbc-avi-to-native")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+	patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"type":"nsxlb","providerRef":{"apiGroup":"netoperator.vmware.com","kind":"NSXLoadBalancerConfig","name":"my-nsx"}}}`))
+	if err := k8sClient.Patch(testCtx, obj, patch); err != nil {
+		t.Fatalf("atomic switch from Avi to native NSX: %v", err)
+	}
+	assertNSXProviderRef(t, obj.Name)
+}
+
+func TestLoadBalancerConfig_AviToNSX_ReferenceMismatch_Rejected(t *testing.T) {
+	for _, patch := range []struct {
+		name string
+		data string
+	}{
+		{name: "type-only", data: `{"spec":{"type":"nsxlb"}}`},
+		{name: "reference-only", data: `{"spec":{"providerRef":{"kind":"NSXLoadBalancerConfig"}}}`},
+	} {
+		t.Run(patch.name, func(t *testing.T) {
+			obj := validAviLBC("lbc-atomic-" + patch.name)
+			if err := k8sClient.Create(testCtx, obj); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+			err := k8sClient.Patch(testCtx, obj, client.RawPatch(types.MergePatchType, []byte(patch.data)))
+			requireLBCRejection(t, err, "providerRef.kind must match spec.type")
+		})
+	}
+}
+
+func TestLoadBalancerConfig_AviToNSX_CreateOrUpdate(t *testing.T) {
+	obj := validAviLBC("lbc-avi-to-nsx-create-or-update")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	updated := &netv1alpha1.LoadBalancerConfig{ObjectMeta: metav1.ObjectMeta{Name: obj.Name}}
+	if _, err := controllerutil.CreateOrUpdate(testCtx, k8sClient, updated, func() error {
+		updated.Spec.Type = netv1alpha1.LoadBalancerConfigTypeNSXLB
+		updated.Spec.ProviderRef = validNSXLBC("").Spec.ProviderRef
+		return nil
+	}); err != nil {
+		t.Fatalf("switch from Avi to NSX with CreateOrUpdate: %v", err)
+	}
+
+	assertNSXProviderRef(t, obj.Name)
+}
+
+func assertNSXProviderRef(t *testing.T, name string) {
+	t.Helper()
+	wire := &unstructured.Unstructured{}
+	wire.SetAPIVersion("netoperator.vmware.com/v1alpha1")
+	wire.SetKind("LoadBalancerConfig")
+	if err := k8sClient.Get(testCtx, client.ObjectKey{Name: name}, wire); err != nil {
+		t.Fatalf("get LoadBalancerConfig %s: %v", name, err)
+	}
+	provider, found, err := unstructured.NestedString(wire.Object, "spec", "type")
+	if err != nil || !found || provider != "nsxlb" {
+		t.Fatalf("expected NSX type, got %q found=%v err=%v", provider, found, err)
+	}
+	kind, found, err := unstructured.NestedString(wire.Object, "spec", "providerRef", "kind")
+	if err != nil || !found || kind != "NSXLoadBalancerConfig" {
+		t.Fatalf("expected NSX provider reference, got %q found=%v err=%v", kind, found, err)
+	}
+}
+
+func TestLoadBalancerConfig_NSXToAvi_Transition_Rejected(t *testing.T) {
+	obj := validNSXLBC("lbc-nsx-switch")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+	obj.Spec = validAviLBC("").Spec
+	requireLBCRejection(t, k8sClient.Update(testCtx, obj), "spec.type is immutable")
+}
+
+func TestLoadBalancerConfig_ProviderRefMutable_Admitted(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*netv1alpha1.LoadBalancerConfigProviderReference)
+	}{
+		{"name", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.Name = "different-name" }},
+		{"api-group", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.APIGroup = "other.example.com" }},
+		{"api-version", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.APIVersion = "v1beta1" }},
+		{"api-version-removal", func(ref *netv1alpha1.LoadBalancerConfigProviderReference) { ref.APIVersion = "" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := validFoundationLBC("lbc-ref-mutable-" + tc.name)
+			obj.Spec.ProviderRef.APIVersion = "v1alpha1"
+			if err := k8sClient.Create(testCtx, obj); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+			if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), obj); err != nil {
+				t.Fatalf("get before update: %v", err)
+			}
+			tc.mutate(&obj.Spec.ProviderRef)
+			if err := k8sClient.Update(testCtx, obj); err != nil {
+				t.Fatalf("expected provider reference update to be admitted: %v", err)
+			}
+		})
+	}
+}
+
+// Use unstructured objects to omit fields.
+func lbcWithoutReference(name, provider string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "netoperator.vmware.com/v1alpha1", "kind": "LoadBalancerConfig",
+		"metadata": map[string]interface{}{"name": name},
+		"spec":     map[string]interface{}{"type": provider},
+	}}
+}
+
+func TestLoadBalancerConfig_TypeTransitions_Rejected(t *testing.T) {
+	providers := []netv1alpha1.LoadBalancerConfigType{
+		netv1alpha1.LoadBalancerConfigTypeFoundation, netv1alpha1.LoadBalancerConfigTypeAvi,
+		netv1alpha1.LoadBalancerConfigTypeHAProxy, netv1alpha1.LoadBalancerConfigTypeNSXLB,
+	}
+	for _, from := range providers {
+		for _, to := range providers {
+			if from == to ||
+				(from == netv1alpha1.LoadBalancerConfigTypeAvi && to == netv1alpha1.LoadBalancerConfigTypeNSXLB) {
+				continue
+			}
+			t.Run(string(from)+"-to-"+string(to), func(t *testing.T) {
+				obj := validFoundationLBC("lbc-transition-" + string(from) + "-" + string(to))
+				obj.Spec.Type = from
+				kinds := map[netv1alpha1.LoadBalancerConfigType]string{
+					netv1alpha1.LoadBalancerConfigTypeFoundation: "FoundationLoadBalancerConfig",
+					netv1alpha1.LoadBalancerConfigTypeAvi:        "AviLoadBalancerConfig",
+					netv1alpha1.LoadBalancerConfigTypeHAProxy:    "HAProxyLoadBalancerConfig",
+					netv1alpha1.LoadBalancerConfigTypeNSXLB:      "NSXLoadBalancerConfig",
+				}
+				if kind, ok := kinds[from]; ok {
+					obj.Spec.ProviderRef.Kind = kind
+				}
+				if err := k8sClient.Create(testCtx, obj); err != nil {
+					t.Fatal(err)
+				}
+				defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+				if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), obj); err != nil {
+					t.Fatalf("get before update: %v", err)
+				}
+				obj.Spec.Type = to
+				if kind, ok := kinds[to]; ok {
+					obj.Spec.ProviderRef.Kind = kind
+				}
+				err := k8sClient.Update(testCtx, obj)
+				if !isRejected(err) || !strings.Contains(err.Error(), "spec.type is immutable") {
+					t.Fatalf("expected type immutability rejection, got: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestLoadBalancerConfig_WCPSVCReconciliation_Admitted(t *testing.T) {
+	for _, factory := range []func(string) *netv1alpha1.LoadBalancerConfig{validFoundationLBC, validAviLBC, validHAProxyLBC} {
+		obj := factory("lbc-wcpsvc")
+		t.Run(string(obj.Spec.Type), func(t *testing.T) {
+			// Match the reference written by wcpsvc.
+			obj.Spec.ProviderRef.Name = obj.Name
+			obj.Spec.ProviderRef.APIVersion = "v1alpha1"
+			expected := obj.Spec
+			if err := k8sClient.Create(testCtx, obj); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+			latest := getLBC(t, obj)
+			latest.Spec = expected
+			if err := k8sClient.Update(testCtx, latest); err != nil {
+				t.Fatalf("idempotent reconciliation: %v", err)
+			}
+			if got := getLBC(t, obj).Spec; got != expected {
+				t.Fatalf("spec: got %+v, want %+v", got, expected)
+			}
+		})
+	}
+}
+
+// Include all providers.
+func controllerLBCs() []*netv1alpha1.LoadBalancerConfig {
+	return []*netv1alpha1.LoadBalancerConfig{validFoundationLBC("lbc-foundation"), validAviLBC("lbc-avi"), validHAProxyLBC("lbc-haproxy"), validNSXLBC("lbc-nsx")}
+}
+
+func getLBC(t *testing.T, obj *netv1alpha1.LoadBalancerConfig) *netv1alpha1.LoadBalancerConfig {
+	t.Helper()
+	latest := &netv1alpha1.LoadBalancerConfig{}
+	if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	return latest
+}
+
+func TestLoadBalancerConfig_Metadata_Roundtrip(t *testing.T) {
+	for _, obj := range controllerLBCs() {
+		t.Run(obj.Name, func(t *testing.T) {
+			obj.Spec.ProviderRef.APIVersion = "v1alpha1"
+			expectedSpec := obj.Spec
+			if err := k8sClient.Create(testCtx, obj); err != nil {
+				t.Fatal(err)
+			}
+			// Remove finalizers even if a round-trip assertion fails.
+			t.Cleanup(func() {
+				latest := &netv1alpha1.LoadBalancerConfig{}
+				if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), latest); err == nil {
+					latest.Finalizers = nil
+					_ = k8sClient.Update(testCtx, latest)
+					_ = k8sClient.Delete(testCtx, latest)
+				}
+			})
+			latest := getLBC(t, obj)
+			before := latest.DeepCopy()
+			latest.Labels = map[string]string{"test": "mutable"}
+			latest.Annotations = map[string]string{"wcp.vmware.com/ingress-tls-secret": "my-secret"}
+			latest.Finalizers = []string{"netoperator.vmware.com/test"}
+			if err := k8sClient.Patch(testCtx, latest, client.MergeFrom(before)); err != nil {
+				t.Fatalf("metadata patch: %v", err)
+			}
+			updated := getLBC(t, obj)
+			if !reflect.DeepEqual(updated.Labels, latest.Labels) || !reflect.DeepEqual(updated.Annotations, latest.Annotations) || !reflect.DeepEqual(updated.Finalizers, latest.Finalizers) {
+				t.Fatalf("metadata did not round-trip: %+v", updated.ObjectMeta)
+			}
+			if updated.Spec != expectedSpec {
+				t.Fatalf("metadata patch changed spec: %+v", updated.Spec)
+			}
+			updated.Finalizers = nil
+			if err := k8sClient.Update(testCtx, updated); err != nil {
+				t.Fatalf("finalizer removal: %v", err)
+			}
+			if got := getLBC(t, obj); len(got.Finalizers) != 0 || got.Spec != expectedSpec {
+				t.Fatalf("unexpected object after finalizer removal: %+v", got)
+			}
+		})
+	}
+}
+
+func TestLoadBalancerConfig_Conditions_StatusRoundtrip(t *testing.T) {
+	for _, obj := range controllerLBCs() {
+		t.Run(obj.Name, func(t *testing.T) {
+			obj.Spec.ProviderRef.APIVersion = "v1alpha1"
+			expectedSpec := obj.Spec
+			if err := k8sClient.Create(testCtx, obj); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+			latest := getLBC(t, obj)
+			if len(latest.Status.Conditions) != 0 {
+				t.Fatalf("expected no initial conditions, got: %+v", latest.Status.Conditions)
+			}
+			before := latest.DeepCopy()
+			expected := []netv1alpha1.LoadBalancerConfigCondition{{Type: netv1alpha1.LoadBalancerConfigReady, Status: corev1.ConditionTrue, Reason: "Reconciled", Message: "load balancer ready"}}
+			latest.Status.Conditions = expected
+			// LBC has no status subresource; the controller patches the main resource.
+			if err := k8sClient.Patch(testCtx, latest, client.MergeFrom(before)); err != nil {
+				t.Fatalf("status patch: %v", err)
+			}
+			updated := getLBC(t, obj)
+			if !reflect.DeepEqual(updated.Status.Conditions, expected) {
+				t.Fatalf("conditions: got %+v, want %+v", updated.Status.Conditions, expected)
+			}
+			if updated.Spec != expectedSpec {
+				t.Fatalf("status patch changed spec: %+v", updated.Spec)
+			}
+		})
+	}
+}
+
+func requireLBCRejection(t *testing.T, err error, message string) {
+	t.Helper()
+	if !isRejected(err) || !strings.Contains(err.Error(), message) {
+		t.Fatalf("expected admission rejection containing %q, got: %v", message, err)
+	}
+}
+
+func TestLoadBalancerConfig_NSXProviderRef_Admitted(t *testing.T) {
+	obj := validNSXLBC("lbc-nsx-with-ref")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatalf("expected NSX with a provider reference to be admitted, got: %v", err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+}
+
+func TestLoadBalancerConfig_SpecRequired_Rejected(t *testing.T) {
+	t.Run("create-without-spec", func(t *testing.T) {
+		obj := lbcWithoutReference("lbc-no-spec", "nsxlb")
+		unstructured.RemoveNestedField(obj.Object, "spec")
+		err := k8sClient.Create(testCtx, obj)
+		if err == nil {
+			t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+		}
+		requireLBCRejection(t, err, "spec: Required value")
+	})
+	t.Run("remove-spec", func(t *testing.T) {
+		obj := validFoundationLBC("lbc-remove-spec")
+		if err := k8sClient.Create(testCtx, obj); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+		if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), obj); err != nil {
+			t.Fatalf("get before update: %v", err)
+		}
+		err := k8sClient.Patch(testCtx, obj, client.RawPatch(types.MergePatchType, []byte(`{"spec":null}`)))
+		requireLBCRejection(t, err, "spec: Required value")
+	})
+}
+
+func TestLoadBalancerConfig_LegacyHAProxyProviderRefKind_Rejected(t *testing.T) {
+	obj := validHAProxyLBC("lbc-legacy-haproxy-kind")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	obj = getLBC(t, obj)
+	obj.Spec.ProviderRef.Kind = "HAProxy"
+	requireLBCRejection(t, k8sClient.Update(testCtx, obj), "providerRef.kind must match spec.type")
+}
+
+func TestLoadBalancerConfig_TypeRequired_Rejected(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		value   interface{}
+		omit    bool
+		message string
+	}{
+		{name: "omitted", omit: true, message: "spec.type: Required value"},
+		{name: "null", value: nil, message: "spec.type: Required value"},
+		{name: "empty", value: "", message: "spec.type: Unsupported value"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := lbcWithoutReference("lbc-type-"+tc.name, "nsxlb")
+			if tc.omit {
+				unstructured.RemoveNestedField(obj.Object, "spec", "type")
+			} else if err := unstructured.SetNestedField(obj.Object, tc.value, "spec", "type"); err != nil {
+				t.Fatal(err)
+			}
+			requireLBCRejection(t, k8sClient.Create(testCtx, obj), tc.message)
+		})
+	}
+}
+
+func TestLoadBalancerConfig_UnchangedType_ReferenceChangeAdmitted(t *testing.T) {
+	for _, obj := range controllerLBCs() {
+		t.Run(obj.Name, func(t *testing.T) {
+			if err := k8sClient.Create(testCtx, obj); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+			latest := getLBC(t, obj)
+			latest.Spec.ProviderRef.Name = "different-provider"
+			if err := k8sClient.Update(testCtx, latest); err != nil {
+				t.Fatalf("expected provider reference update to be admitted: %v", err)
+			}
+			if got := getLBC(t, obj).Spec.ProviderRef.Name; got != "different-provider" {
+				t.Fatalf("providerRef.name: got %q, want %q", got, "different-provider")
+			}
+		})
+	}
+}

@@ -77,14 +77,20 @@ const (
 
 	// LoadBalancerConfigTypeFoundation is the FoundationLoadBalancerConfigType for VCF Foundation Load Balancer.
 	LoadBalancerConfigTypeFoundation LoadBalancerConfigType = "foundation"
+
+	// LoadBalancerConfigTypeNSXLB is the type for NSX Load Balancer.
+	LoadBalancerConfigTypeNSXLB LoadBalancerConfigType = "nsxlb"
 )
 
 // LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig
+// +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind == 'HAProxyLoadBalancerConfig') || (self.type == 'nsxlb' && self.providerRef.kind == 'NSXLoadBalancerConfig')",message="providerRef.kind must match spec.type"
 type LoadBalancerConfigSpec struct {
-	// Type describes type of load balancer.
-	// +kubebuilder:validation:Enum=haproxy;avi;foundation
+	// type describes the load balancer provider.
+	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsxlb
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || (oldSelf == 'avi' && self == 'nsxlb')",message="spec.type is immutable"
 	Type LoadBalancerConfigType `json:"type"`
-	// ProviderRef is reference to a load balancer provider object that provides the details for this type of load balancer
+	// providerRef references the configuration for this load balancer type.
+	// +required
 	ProviderRef LoadBalancerConfigProviderReference `json:"providerRef"`
 }
 
@@ -104,6 +110,8 @@ type LoadBalancerConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// spec defines the desired load balancer configuration.
+	// +required
 	Spec   LoadBalancerConfigSpec   `json:"spec,omitempty"`
 	Status LoadBalancerConfigStatus `json:"status,omitempty"`
 }

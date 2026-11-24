@@ -136,9 +136,9 @@ func TestLoadBalancerConfig_ProviderRefKindMismatch_Rejected(t *testing.T) {
 	for _, newObject := range []func(string) *netv1alpha1.LoadBalancerConfig{
 		validFoundationLBC, validAviLBC, validHAProxyLBC, validNSXLBC,
 	} {
-		for _, kind := range []string{"FoundationLoadBalancerConfig", "AviLoadBalancerConfig", "HAProxyLoadBalancerConfig", "HAProxy", "NSXLoadBalancerConfig", "Unknown", ""} {
+		for _, kind := range []string{"FoundationLoadBalancerConfig", "AviLoadBalancerConfig", "HAProxyLoadBalancerConfig", "NSXLoadBalancerConfig", "Unknown", ""} {
 			obj := newObject("lbc-kind-mismatch")
-			if obj.Spec.ProviderRef.Kind == kind || (obj.Spec.Type == netv1alpha1.LoadBalancerConfigTypeHAProxy && kind == "HAProxy") {
+			if obj.Spec.ProviderRef.Kind == kind {
 				continue
 			}
 			t.Run(string(obj.Spec.Type)+"/"+kind, func(t *testing.T) {
@@ -357,11 +357,9 @@ func TestLoadBalancerConfig_WCPSVCReconciliation_Admitted(t *testing.T) {
 	}
 }
 
-// Include all providers and the legacy HAProxy kind.
+// Include all providers.
 func controllerLBCs() []*netv1alpha1.LoadBalancerConfig {
-	legacy := validHAProxyLBC("lbc-legacy-haproxy")
-	legacy.Spec.ProviderRef.Kind = "HAProxy"
-	return []*netv1alpha1.LoadBalancerConfig{validFoundationLBC("lbc-foundation"), validAviLBC("lbc-avi"), validHAProxyLBC("lbc-haproxy"), legacy, validNSXLBC("lbc-nsx")}
+	return []*netv1alpha1.LoadBalancerConfig{validFoundationLBC("lbc-foundation"), validAviLBC("lbc-avi"), validHAProxyLBC("lbc-haproxy"), validNSXLBC("lbc-nsx")}
 }
 
 func getLBC(t *testing.T, obj *netv1alpha1.LoadBalancerConfig) *netv1alpha1.LoadBalancerConfig {
@@ -486,31 +484,16 @@ func TestLoadBalancerConfig_SpecRequired_Rejected(t *testing.T) {
 	})
 }
 
-func TestLoadBalancerConfig_HAProxyKindChange_Admitted(t *testing.T) {
-	for _, kind := range []string{"HAProxy", "HAProxyLoadBalancerConfig"} {
-		t.Run(kind, func(t *testing.T) {
-			obj := validHAProxyLBC("lbc-kind-" + strings.ToLower(kind))
-			obj.Spec.ProviderRef.Kind = kind
-			obj.Spec.ProviderRef.APIVersion = "v1alpha1"
-			if err := k8sClient.Create(testCtx, obj); err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
-			latest := getLBC(t, obj)
-			if latest.Spec != obj.Spec {
-				t.Fatalf("reference did not round-trip: %+v", latest.Spec)
-			}
-			obj = latest
-
-			obj.Spec.ProviderRef.Kind = "HAProxy"
-			if kind == "HAProxy" {
-				obj.Spec.ProviderRef.Kind = "HAProxyLoadBalancerConfig"
-			}
-			if err := k8sClient.Update(testCtx, obj); err != nil {
-				t.Fatalf("expected HAProxy provider kind update to be admitted: %v", err)
-			}
-		})
+func TestLoadBalancerConfig_LegacyHAProxyProviderRefKind_Rejected(t *testing.T) {
+	obj := validHAProxyLBC("lbc-legacy-haproxy-kind")
+	if err := k8sClient.Create(testCtx, obj); err != nil {
+		t.Fatal(err)
 	}
+	defer func() { _ = k8sClient.Delete(testCtx, obj) }()
+
+	obj = getLBC(t, obj)
+	obj.Spec.ProviderRef.Kind = "HAProxy"
+	requireLBCRejection(t, k8sClient.Update(testCtx, obj), "providerRef.kind must match spec.type")
 }
 
 func TestLoadBalancerConfig_TypeRequired_Rejected(t *testing.T) {

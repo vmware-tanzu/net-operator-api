@@ -83,7 +83,7 @@ const (
 )
 
 // LoadBalancerConfigSpec defines the desired state of LoadBalancerConfig
-// +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind in ['HAProxyLoadBalancerConfig', 'HAProxy']) || (self.type == 'nsxlb' && self.providerRef.kind == 'NSXLoadBalancerConfig')",message="providerRef.kind must match spec.type"
+// +kubebuilder:validation:XValidation:rule="(self.type == 'foundation' && self.providerRef.kind == 'FoundationLoadBalancerConfig') || (self.type == 'avi' && self.providerRef.kind == 'AviLoadBalancerConfig') || (self.type == 'haproxy' && self.providerRef.kind == 'HAProxyLoadBalancerConfig') || (self.type == 'nsxlb' && self.providerRef.kind == 'NSXLoadBalancerConfig')",message="providerRef.kind must match spec.type"
 type LoadBalancerConfigSpec struct {
 	// type describes the load balancer provider.
 	// +kubebuilder:validation:Enum=haproxy;avi;foundation;nsxlb

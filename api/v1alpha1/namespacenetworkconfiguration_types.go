@@ -230,8 +230,8 @@ type AutoCreateVPCConfig struct {
 // There are two mutually exclusive modes:
 //
 //  1. Pre-created VPC mode: Set vpc to reference an existing VPC. Only
-//     defaultSubnetSize, defaultIPv6PrefixLength, and sharedSubnets take
-//     effect alongside vpc.
+//     defaultSubnetSize, defaultIPv6PrefixLength, sharedSubnets, and dnsZones
+//     take effect alongside vpc.
 //
 //  2. Auto-create VPC mode: Set autoCreateConfig to have a VPC automatically
 //     created and scoped to this namespace. defaultSubnetSize and
@@ -278,6 +278,22 @@ type VPCConfig struct {
 	// +listType=map
 	// +listMapKey=name
 	SharedSubnets []SharedSubnet `json:"sharedSubnets,omitempty"`
+
+	// dnsZones lists the NSX policy paths of DNS zones permitted for workloads in this namespace.
+	// Each zone must either be shared with the NSX project of the namespace's VPC or belong to
+	// that project with a resolution scope that includes the namespace's VPC. This applies to both
+	// pre-created and automatically created VPCs.
+	//
+	// The list is unordered and contains no duplicates. Updates replace the
+	// desired set of zones. Removing a zone also removes DNS records created
+	// by this namespace in that zone. An omitted or empty list permits no zones.
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=20
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=2048
+	// +listType=set
+	DNSZones []string `json:"dnsZones,omitempty"`
 
 	// defaultSubnetSize is the default size of IPv4 Namespace Subnets, specified as
 	// the number of IP addresses. Must be a power of 2 (e.g. 16, 32, 64, 128).

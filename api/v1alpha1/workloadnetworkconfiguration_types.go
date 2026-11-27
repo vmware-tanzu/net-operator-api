@@ -37,6 +37,7 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.type != 'vpc' || has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig must be set when type is vpc"
 // +kubebuilder:validation:XValidation:rule="self.type == 'vpc' || !has(self.systemConfiguration.vpcConfig)",message="systemConfiguration.vpcConfig may only be set when type is vpc"
 // +kubebuilder:validation:XValidation:rule="self.type == 'nsx-tier1' || !has(self.systemConfiguration.nsxTier1Config)",message="systemConfiguration.nsxTier1Config may only be set when type is nsx-tier1"
+// +kubebuilder:validation:XValidation:rule="self.type == 'nsx-tier1' || !has(self.nsxTier1NcpConfig)",message="nsxTier1NcpConfig may only be set when type is nsx-tier1"
 
 // NetworkProviderEntry pairs a network provider type with its system-level
 // NamespaceNetworkConfiguration template. Exactly one entry per type is allowed
@@ -51,6 +52,24 @@ type NetworkProviderEntry struct {
 	//
 	// +required
 	SystemConfiguration *NamespaceNetworkConfig `json:"systemConfiguration,omitempty"`
+
+	// nsxTier1NcpConfig specifies cluster-level NCP settings for an NSX Tier-1 provider.
+	// It is separate from namespace network overrides.
+	//
+	// +optional
+	//nolint:kubeapilinter // Presence is required to validate an explicitly supplied object.
+	NSXTier1NCPConfig *NSXTier1NCPConfig `json:"nsxTier1NcpConfig,omitempty,omitzero"`
+}
+
+// NSXTier1NCPConfig specifies cluster-level NCP settings for an NSX Tier-1 provider.
+type NSXTier1NCPConfig struct {
+	// edgeCluster is the NSX Edge Cluster Policy ID used by NCP, not a Policy path.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	// +kubebuilder:validation:Pattern=`^[^/]+$`
+	EdgeCluster string `json:"edgeCluster,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.providers.exists(p, p.type == self.activeSystemProvider)",message="activeSystemProvider must reference a provider type declared in providers"

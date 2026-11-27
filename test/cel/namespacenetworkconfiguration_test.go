@@ -1706,7 +1706,7 @@ const (
 	testNamespaceCIDR = "192.168.1.0/24"
 	testIngressCIDR   = "192.168.2.0/24"
 	testEgressCIDR    = "192.168.3.0/24"
-	testTier0Gateway  = "/infra/tier-0s/my-gw"
+	testTier0Gateway  = "my-gw"
 )
 
 func TestNamespaceNetworkConfiguration_NSXTier1ValidOverride_Admitted(t *testing.T) {
@@ -1888,7 +1888,7 @@ func TestNamespaceNetworkConfiguration_NSXTier1UpdatesAndImmutability(t *testing
 	}
 
 	// 1. Reject updating tier0Gateway
-	fetched.Spec.NSXTier1Config.Tier0Gateway = "/infra/tier-0s/other-gw"
+	fetched.Spec.NSXTier1Config.Tier0Gateway = "other-gw"
 	if err := k8sClient.Update(testCtx, fetched); err == nil || !strings.Contains(err.Error(), "tier0Gateway is immutable once set") {
 		t.Fatalf("expected rejection for tier0Gateway update, got: %v", err)
 	}
@@ -2088,5 +2088,46 @@ func TestNamespaceNetworkConfiguration_NSXTier1MutualExclusion(t *testing.T) {
 	}
 	if err := k8sClient.Create(testCtx, nnc4); err == nil || !strings.Contains(err.Error(), "vpcConfig must not be populated when type is not vpc") {
 		t.Fatalf("expected rejection for partial vpcConfig when type is nsx-tier1, got: %v", err)
+	}
+}
+
+func TestNamespaceNetworkConfiguration_Tier0GatewayID(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+		valid bool
+	}{
+		{name: "resource ID", value: "ContainerT0", valid: true},
+		{name: "no slash restriction", value: "/infra/tier-0s/ContainerT0", valid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := &netv1alpha1.NamespaceNetworkConfiguration{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-tier0-id"},
+				Spec: netv1alpha1.NamespaceNetworkSpec{
+					Type: netv1alpha1.NetworkProviderNSXTier1,
+					NamespaceNetworkConfig: netv1alpha1.NamespaceNetworkConfig{
+						NSXTier1Config: &netv1alpha1.NSXTier1Config{Tier0Gateway: tc.value},
+					},
+				},
+			}
+			err := k8sClient.Create(testCtx, obj)
+			if !tc.valid {
+				if !isRejected(err) {
+					t.Fatalf("expected policy path rejection, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+			got := &netv1alpha1.NamespaceNetworkConfiguration{}
+			if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), got); err != nil {
+				t.Fatalf("read back: %v", err)
+			}
+			if got.Spec.NSXTier1Config == nil || got.Spec.NSXTier1Config.Tier0Gateway != tc.value {
+				t.Fatalf("Tier-0 ID was not retained: %#v", got.Spec.NSXTier1Config)
+			}
+		})
 	}
 }

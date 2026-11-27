@@ -412,9 +412,10 @@ type NSXTier1Config struct {
 	// +listType=atomic
 	EgressCIDRs []string `json:"egressCIDRs,omitempty"`
 
-	// tier0Gateway is the NSX policy path of the Tier-0 Gateway used for this
-	// namespace (e.g., /infra/tier-0s/<t0-id>). When unset, the cluster-level Tier-0 Gateway from the global NSX Container Plugin (NCP)
-	// configuration is applied. Leaving this field unset allows partial overrides of other parameters.
+	// tier0Gateway is the NSX Tier-0 Gateway resource ID, not a Policy path.
+	// When unset, the cluster-level Tier-0 Gateway from the global NSX Container
+	// Plugin (NCP) configuration is applied. Leaving this field unset allows
+	// partial overrides of other parameters.
 	// This field is immutable once set.
 	//
 	// +optional

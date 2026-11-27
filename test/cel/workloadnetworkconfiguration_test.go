@@ -779,3 +779,146 @@ func TestWorkloadNetworkConfiguration_NTPServerItemTooLong_Rejected(t *testing.T
 	}
 }
 
+func TestWorkloadNetworkConfiguration_Tier1NCPConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		provider string
+		config   map[string]interface{}
+		valid    bool
+	}{
+		{name: "tier1 policy ID", provider: "nsx-tier1", config: map[string]interface{}{"edgeCluster": "policy-id"}, valid: true},
+		{name: "legacy tier1 without NCP config", provider: "nsx-tier1", valid: true},
+		{name: "missing edge", provider: "nsx-tier1", config: map[string]interface{}{}, valid: false},
+		{name: "empty edge", provider: "nsx-tier1", config: map[string]interface{}{"edgeCluster": ""}, valid: false},
+		{name: "edge policy path", provider: "nsx-tier1", config: map[string]interface{}{"edgeCluster": "/infra/sites/default/enforcement-points/default/edge-clusters/edge"}, valid: false},
+		{name: "edge ID too long", provider: "nsx-tier1", config: map[string]interface{}{"edgeCluster": strings.Repeat("a", 257)}, valid: false},
+		{name: "NCP config on VDS", provider: "vsphere-distributed", config: map[string]interface{}{"edgeCluster": "policy-id"}, valid: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := map[string]interface{}{"type": tc.provider, "systemConfiguration": map[string]interface{}{}}
+			if tc.provider == "vsphere-distributed" {
+				entry = vdsProviderEntry(wncSystemNetName)
+			}
+			if tc.config != nil {
+				entry["nsxTier1NcpConfig"] = tc.config
+			}
+			obj := unstrWNC(wncDefaultName, map[string]interface{}{
+				"providers": []interface{}{entry}, "activeSystemProvider": tc.provider,
+			})
+			err := k8sClient.Create(testCtx, obj)
+			if !tc.valid {
+				if !isRejected(err) {
+					t.Fatalf("expected schema rejection, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+			got := &netv1alpha1.WorkloadNetworkConfiguration{}
+			if err := k8sClient.Get(testCtx, client.ObjectKey{Name: wncDefaultName}, got); err != nil {
+				t.Fatalf("read back: %v", err)
+			}
+			if tc.config != nil && (got.Spec.Providers[0].NSXTier1NCPConfig == nil || got.Spec.Providers[0].NSXTier1NCPConfig.EdgeCluster != "policy-id") {
+				t.Fatalf("policy ID was not retained: %#v", got.Spec.Providers[0].NSXTier1NCPConfig)
+			}
+		})
+	}
+}
+
+func TestWorkloadNetworkConfiguration_Tier0GatewayID(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+		valid bool
+	}{
+		{name: "resource ID", value: "ContainerT0", valid: true},
+		{name: "no slash restriction", value: "/infra/tier-0s/ContainerT0", valid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := unstrWNC(wncDefaultName, map[string]interface{}{
+				"providers": []interface{}{map[string]interface{}{
+					"type": "nsx-tier1",
+					"systemConfiguration": map[string]interface{}{
+						"nsxTier1Config": map[string]interface{}{"tier0Gateway": tc.value},
+					},
+				}},
+				"activeSystemProvider": "nsx-tier1",
+			})
+			err := k8sClient.Create(testCtx, obj)
+			if !tc.valid {
+				if !isRejected(err) {
+					t.Fatalf("expected policy path rejection, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+			got := &netv1alpha1.WorkloadNetworkConfiguration{}
+			if err := k8sClient.Get(testCtx, client.ObjectKey{Name: wncDefaultName}, got); err != nil {
+				t.Fatalf("read back: %v", err)
+			}
+			cfg := got.Spec.Providers[0].SystemConfiguration.NSXTier1Config
+			if cfg == nil || cfg.Tier0Gateway != tc.value {
+				t.Fatalf("Tier-0 ID was not retained: %#v", cfg)
+			}
+		})
+	}
+}
+
+func TestWorkloadNetworkConfiguration_Tier1NetworkAndNCPConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mode        netv1alpha1.NSXTier1RoutingMode
+		egressCIDRs []string
+		valid       bool
+	}{
+		{name: "NAT", mode: netv1alpha1.NSXTier1RoutingModeNAT, egressCIDRs: []string{"192.168.124.0/24"}, valid: true},
+		{name: "Routed", mode: netv1alpha1.NSXTier1RoutingModeRouted, valid: true},
+		{name: "NAT without egress", mode: netv1alpha1.NSXTier1RoutingModeNAT},
+		{name: "Routed with egress", mode: netv1alpha1.NSXTier1RoutingModeRouted, egressCIDRs: []string{"192.168.124.0/24"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := &netv1alpha1.WorkloadNetworkConfiguration{
+				ObjectMeta: metav1.ObjectMeta{Name: wncDefaultName},
+				Spec: netv1alpha1.WorkloadNetworkConfigurationSpec{
+					ActiveSystemProvider: netv1alpha1.NetworkProviderNSXTier1,
+					Providers: []netv1alpha1.NetworkProviderEntry{{
+						Type: netv1alpha1.NetworkProviderNSXTier1,
+						SystemConfiguration: &netv1alpha1.NamespaceNetworkConfig{NSXTier1Config: &netv1alpha1.NSXTier1Config{
+							Tier0Gateway: "ContainerT0", NamespaceCIDRs: []string{"172.26.0.0/16"},
+							IngressCIDRs: []string{"192.168.123.0/24"}, EgressCIDRs: tc.egressCIDRs,
+							SubnetPrefixLength: 28, RoutingMode: tc.mode,
+						}},
+						NSXTier1NCPConfig: &netv1alpha1.NSXTier1NCPConfig{EdgeCluster: "edge-policy-id"},
+					}},
+				},
+			}
+			err := k8sClient.Create(testCtx, obj)
+			if !tc.valid {
+				if !isRejected(err) {
+					t.Fatalf("expected invalid routing configuration to be rejected, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			t.Cleanup(func() { _ = k8sClient.Delete(testCtx, obj) })
+			got := &netv1alpha1.WorkloadNetworkConfiguration{}
+			if err := k8sClient.Get(testCtx, client.ObjectKeyFromObject(obj), got); err != nil {
+				t.Fatalf("read back: %v", err)
+			}
+			provider := got.Spec.Providers[0]
+			if provider.SystemConfiguration == nil || provider.SystemConfiguration.NSXTier1Config == nil ||
+				provider.SystemConfiguration.NSXTier1Config.Tier0Gateway != "ContainerT0" ||
+				provider.SystemConfiguration.NSXTier1Config.RoutingMode != tc.mode ||
+				provider.NSXTier1NCPConfig == nil || provider.NSXTier1NCPConfig.EdgeCluster != "edge-policy-id" {
+				t.Fatalf("Tier-1 network and NCP configuration not retained: %#v", provider)
+			}
+		})
+	}
+}
